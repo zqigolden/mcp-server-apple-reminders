@@ -63,6 +63,26 @@ This project uses:
 - [TypeScript](https://www.typescriptlang.org/) for type safety
 - [Model Context Protocol SDK](https://github.com/modelcontextprotocol/sdk) for server implementation
 
+### Project Structure
+
+```
+src/
+  ├── index.ts              # Entry point
+  ├── server/               # Server configuration
+  │   ├── server.ts         # Server setup and startup
+  │   └── handlers.ts       # Request handlers
+  ├── tools/                # MCP tools
+  │   ├── definitions.ts    # Tool definitions
+  │   ├── handlers.ts       # Tool handler
+  │   └── index.ts          # Tools export
+  ├── utils/                # Utility functions
+  │   ├── applescript.ts    # AppleScript utilities
+  │   ├── date.ts           # Date parsing utilities
+  │   └── logger.ts         # Logging utilities
+  └── types/                # Type definitions
+      └── index.ts
+```
+
 ## License
 
 MIT License
