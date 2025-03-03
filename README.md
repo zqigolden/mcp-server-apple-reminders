@@ -7,6 +7,7 @@ An MCP server for interacting with Apple Reminders on macOS. This server provide
 ## Features
 
 - Create new reminders with titles and optional due dates
+- Attach notes to reminders
 - List all reminders or reminders from a specific list
 - List all available reminder lists
 - Natural language date parsing support
@@ -38,6 +39,7 @@ This will add the server to your Claude MCP configuration.
      - `title`: Title of the reminder (required)
      - `dueDate`: Optional due date (e.g., "tomorrow at 3pm")
      - `list`: Optional name of the reminders list
+     - `note`: Optional note text to attach to the reminder
 
 2. `list_reminders`
 

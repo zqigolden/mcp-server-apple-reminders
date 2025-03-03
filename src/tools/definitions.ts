@@ -25,6 +25,10 @@ export const TOOLS: Tool[] = [
           type: "string",
           description: "Optional name of the reminders list to add to",
         },
+        note: {
+          type: "string",
+          description: "Optional note text to attach to the reminder",
+        },
       },
       required: ["title"],
     },

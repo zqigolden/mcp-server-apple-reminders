@@ -25,15 +25,25 @@ export async function handleCreateReminder(args: any): Promise<CallToolResult> {
       scriptBody += "set targetList to default list\n";
     }
 
-    scriptBody += "make new reminder at end of targetList\n";
-    scriptBody += `set name of result to "${args.title}"\n`;
-
+    // Build properties object for the reminder
+    scriptBody += "set reminderProps to {name:\"" + args.title + "\"";
+    
     // Add due date if specified
     if (args.dueDate) {
       const parsedDate = parseDate(args.dueDate);
       debugLog("Parsed date:", parsedDate);
-      scriptBody += `set due date of result to date "${parsedDate}"\n`;
+      scriptBody += `, due date:date "${parsedDate}"`;
     }
+    
+    // Add note if specified
+    if (args.note) {
+      scriptBody += `, body:"${args.note}"`;
+    }
+    
+    scriptBody += "}\n";
+    
+    // Create reminder with all properties at once
+    scriptBody += "make new reminder at end of targetList with properties reminderProps\n";
 
     // Execute the script
     const script = createRemindersScript(scriptBody);
@@ -44,7 +54,7 @@ export async function handleCreateReminder(args: any): Promise<CallToolResult> {
       content: [
         {
           type: "text",
-          text: `Successfully created reminder: ${args.title}`,
+          text: `Successfully created reminder: ${args.title}${args.note ? ' with notes' : ''}`,
         },
       ],
       isError: false,
@@ -79,7 +89,7 @@ export async function handleListReminders(args: any): Promise<CallToolResult> {
 
     scriptBody += "set reminderNames to {}\n";
     scriptBody += "repeat with r in (reminders in reminderList whose completed is false)\n";
-    scriptBody += "set end of reminderNames to {name:name of r, due:due date of r}\n";
+    scriptBody += "set end of reminderNames to {name:name of r, due:due date of r, note:body of r}\n";
     scriptBody += "end repeat\n";
     scriptBody += "return reminderNames\n";
 
