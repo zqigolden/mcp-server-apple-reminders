@@ -7,6 +7,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { createRemindersScript, executeAppleScript } from "../utils/applescript.js";
 import { parseDate } from "../utils/date.js";
 import { debugLog } from "../utils/logger.js";
+import { remindersManager } from "../utils/reminders.js";
 
 /**
  * Creates a new reminder
@@ -73,41 +74,69 @@ export async function handleCreateReminder(args: any): Promise<CallToolResult> {
 }
 
 /**
- * Lists reminders from a specific list or the default list
+ * Lists reminders from a specific list or all reminders
  * @param args - Arguments for listing reminders
  * @returns Result of the operation with the list of reminders
  */
 export async function handleListReminders(args: any): Promise<CallToolResult> {
   try {
-    const listName = args.list || "Reminders";
-    const scriptBody = `
-      tell application "Reminders"
-        set theList to first list whose name is "${listName}"
-        set theReminders to {}
-        set allReminders to (every reminder of theList whose completed is false)
-        repeat with r in allReminders
-          set end of theReminders to {|name|:name of r}
-        end repeat
-        return theReminders
-      end tell
-    `;
-
-    const result = executeAppleScript(scriptBody);
-    const reminders = result.split(", ").filter(r => r.trim() !== "");
-    const formattedResult = reminders.length > 0 
-      ? reminders.map(r => `- ${r.replace(/[{}]/g, "").trim()}`).join("\n")
-      : "No active reminders found";
+    console.log('DEBUG: handleListReminders args:', args);
     
+    // 确保 showCompleted 是布尔值
+    const showCompleted = args.showCompleted === true;
+    
+    // Use the Swift-based reminders manager
+    const { reminders, lists } = await remindersManager.getReminders(showCompleted);
+    
+    console.log('DEBUG: Total reminders from Swift:', reminders.length);
+    
+    // Filter reminders by completion status first, then by list
+    let filteredReminders = reminders;
+    
+    // 使用严格的布尔值比较进行过滤
+    if (!showCompleted) {
+      filteredReminders = filteredReminders.filter(r => {
+        const isCompleted = r.isCompleted === true;
+        console.log(`DEBUG: Filtering reminder "${r.title}":
+          - isCompleted: ${isCompleted}
+          - Raw value: ${r.isCompleted}
+          - Type: ${typeof r.isCompleted}`);
+        return !isCompleted;
+      });
+    }
+    
+    // 按列表过滤
+    if (args.list) {
+      filteredReminders = filteredReminders.filter(r => r.list === args.list);
+    }
+
+    // Format the reminders for display
+    const formattedReminders = filteredReminders.map(r => {
+      let text = `- ${r.title}`;
+      if (r.dueDate) {
+        text += ` (Due: ${r.dueDate})`;
+      }
+      
+      // 使用严格的布尔值比较来显示完成状态
+      if (r.isCompleted === true) {
+        text += " ✓";
+      }
+      
+      return text;
+    }).join("\n");
+
+    const listName = args.list || "all lists";
     return {
       content: [
         {
           type: "text",
-          text: `Active reminders in "${listName}" list:\n${formattedResult}`,
+          text: formattedReminders || `No reminders found in ${listName}`,
         },
       ],
       isError: false,
     };
   } catch (error) {
+    console.error('Error in handleListReminders:', error);
     return {
       content: [
         {
@@ -126,22 +155,17 @@ export async function handleListReminders(args: any): Promise<CallToolResult> {
  */
 export async function handleListReminderLists(): Promise<CallToolResult> {
   try {
-    const scriptBody = `
-      set listNames to {}
-      repeat with l in lists
-        set end of listNames to name of l
-      end repeat
-      return listNames
-    `;
-
-    const script = createRemindersScript(scriptBody);
-    const result = executeAppleScript(script);
-
+    // Use the Swift-based reminders manager
+    const { lists } = await remindersManager.getReminders();
+    
+    // Format the lists for display
+    const formattedLists = lists.map(list => `- ${list.title}`).join("\n");
+    
     return {
       content: [
         {
           type: "text",
-          text: `Available reminder lists:\n${result}`,
+          text: `Available reminder lists:\n${formattedLists}`,
         },
       ],
       isError: false,
@@ -157,4 +181,4 @@ export async function handleListReminderLists(): Promise<CallToolResult> {
       isError: true,
     };
   }
-} 
+}

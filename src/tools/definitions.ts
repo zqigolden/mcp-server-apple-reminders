@@ -43,6 +43,11 @@ export const TOOLS: Tool[] = [
           type: "string",
           description: "Optional name of the reminders list to show",
         },
+        showCompleted: {
+          type: "boolean",
+          description: "Whether to show completed reminders (default: false)",
+          default: false
+        }
       },
     },
   },

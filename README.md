@@ -11,6 +11,7 @@ An MCP server for interacting with Apple Reminders on macOS. This server provide
 - List all reminders or reminders from a specific list
 - List all available reminder lists
 - Natural language date parsing support
+- **Native Swift integration for better performance and reliability**
 
 ## Installation
 
@@ -29,6 +30,14 @@ bun run setup.ts
 ```
 
 This will add the server to your Claude MCP configuration.
+
+### Build Swift Components
+
+This project uses Swift to interact with Apple's EventKit framework for better performance and reliability. To build the Swift components:
+
+```bash
+bun run build:swift
+```
 
 ### Available Tools
 
@@ -56,6 +65,7 @@ This will add the server to your Claude MCP configuration.
 - macOS with Apple Reminders app
 - [Bun](https://bun.sh) runtime
 - Node.js TypeScript support
+- Swift compiler (swiftc) for native components
 
 ## Development
 
@@ -64,6 +74,7 @@ This project uses:
 - [Bun](https://bun.sh) as the JavaScript runtime
 - [TypeScript](https://www.typescriptlang.org/) for type safety
 - [Model Context Protocol SDK](https://github.com/modelcontextprotocol/sdk) for server implementation
+- [Swift](https://swift.org) for native integration with Apple's EventKit
 
 ### Project Structure
 
@@ -80,7 +91,13 @@ src/
   ├── utils/                # Utility functions
   │   ├── applescript.ts    # AppleScript utilities
   │   ├── date.ts           # Date parsing utilities
-  │   └── logger.ts         # Logging utilities
+  │   ├── logger.ts         # Logging utilities
+  │   └── reminders.ts      # Swift binary wrapper
+  ├── swift/                # Swift native code
+  │   ├── GetReminders.swift # Swift source code
+  │   ├── Info.plist        # Permission configuration
+  │   ├── build.sh          # Swift build script
+  │   └── bin/              # Compiled Swift binaries
   └── types/                # Type definitions
       └── index.ts
 ```

@@ -6,6 +6,25 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 /**
+ * Reminder item interface
+ */
+export interface Reminder {
+  title: string;
+  dueDate?: string;
+  notes?: string;
+  list: string;
+  isCompleted: boolean;
+}
+
+/**
+ * Reminder list interface
+ */
+export interface ReminderList {
+  id: number;
+  title: string;
+}
+
+/**
  * Server configuration
  */
 export interface ServerConfig {

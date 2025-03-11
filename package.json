@@ -4,6 +4,10 @@
   "description": "MCP server for automation using Apple Reminders",
   "module": "src/index.js",
   "type": "module",
+  "scripts": {
+    "build:swift": "src/swift/build.sh",
+    "test": "bun test"
+  },
   "keywords": [
     "mcp",
     "apple",
