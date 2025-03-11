@@ -28,7 +28,7 @@ const serverPath = join(import.meta.dir, "./src/index.ts");
 // Update configuration
 config.mcpServers = {
   ...config.mcpServers,
-  "apple-reminders": {
+  "mcp-server-apple-reminders": {
     command: bunPath,
     args: [serverPath],
   },
@@ -37,5 +37,5 @@ config.mcpServers = {
 // Write updated configuration to file
 await Bun.write(CONFIG_PATH, JSON.stringify(config, null, 2));
 
-console.log("\x1b[32m✨ Successfully added apple-reminders server to Claude MCP config! 🎉\x1b[0m");
+console.log("\x1b[32m✨ Successfully added mcp-server-apple-reminders server to Claude MCP config! 🎉\x1b[0m");
 console.log(CONFIG_PATH.replace(homedir(), "~"));

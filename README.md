@@ -13,17 +13,28 @@ An MCP server for interacting with Apple Reminders on macOS. This server provide
 - Natural language date parsing support
 - **Native Swift integration for better performance and reliability**
 
+## Requirements
+
+- macOS with Apple Reminders app
+- [Bun](https://bun.sh) runtime
+- Node.js and TypeScript support
+- Swift compiler (swiftc) for native components
+
 ## Installation
 
-To install dependencies:
+1. Install dependencies:
 
 ```bash
 bun install
 ```
 
-## Setup
+2. Build Swift components:
 
-Run the setup script to configure the MCP server:
+```bash
+bun run build:swift
+```
+
+3. Run the setup script:
 
 ```bash
 bun run setup.ts
@@ -31,18 +42,9 @@ bun run setup.ts
 
 This will add the server to your Claude MCP configuration.
 
-### Build Swift Components
-
-This project uses Swift to interact with Apple's EventKit framework for better performance and reliability. To build the Swift components:
-
-```bash
-bun run build:swift
-```
-
-### Available Tools
+## Available Tools
 
 1. `create_reminder`
-
    - Create a new reminder with title and optional due date
    - Parameters:
      - `title`: Title of the reminder (required)
@@ -51,59 +53,56 @@ bun run build:swift
      - `note`: Optional note text to attach to the reminder
 
 2. `list_reminders`
-
    - List all reminders or reminders from a specific list
    - Parameters:
      - `list`: Optional name of the reminders list to show
+     - `showCompleted`: Optional boolean to show completed reminders (default: false)
 
 3. `list_reminder_lists`
    - List all available reminder lists
    - No parameters required
 
-## Requirements
-
-- macOS with Apple Reminders app
-- [Bun](https://bun.sh) runtime
-- Node.js TypeScript support
-- Swift compiler (swiftc) for native components
-
-## Development
-
-This project uses:
-
-- [Bun](https://bun.sh) as the JavaScript runtime
-- [TypeScript](https://www.typescriptlang.org/) for type safety
-- [Model Context Protocol SDK](https://github.com/modelcontextprotocol/sdk) for server implementation
-- [Swift](https://swift.org) for native integration with Apple's EventKit
-
-### Project Structure
+## Project Structure
 
 ```
-src/
-  ├── index.ts              # Entry point
-  ├── server/               # Server configuration
-  │   ├── server.ts         # Server setup and startup
-  │   └── handlers.ts       # Request handlers
-  ├── tools/                # MCP tools
-  │   ├── definitions.ts    # Tool definitions
-  │   ├── handlers.ts       # Tool handler
-  │   └── index.ts          # Tools export
-  ├── utils/                # Utility functions
-  │   ├── applescript.ts    # AppleScript utilities
-  │   ├── date.ts           # Date parsing utilities
-  │   ├── logger.ts         # Logging utilities
-  │   └── reminders.ts      # Swift binary wrapper
-  ├── swift/                # Swift native code
-  │   ├── GetReminders.swift # Swift source code
-  │   ├── Info.plist        # Permission configuration
-  │   ├── build.sh          # Swift build script
-  │   └── bin/              # Compiled Swift binaries
-  └── types/                # Type definitions
-      └── index.ts
+.
+├── bin/                        # Compiled binaries
+├── src/                        # Source code
+│   ├── index.ts                # Application entry point
+│   ├── server/                 # Server configuration
+│   ├── tools/                  # MCP tools implementation
+│   │   ├── index.ts            # Tools exports
+│   │   ├── definitions.ts      # Tool definitions and schemas
+│   │   ├── handlers.ts         # Tool implementation logic
+│   │   └── handlers.test.ts    # Tool tests
+│   ├── types/                  # TypeScript type definitions
+│   ├── utils/                  # Utility functions
+│   │   ├── reminders.ts        # Core reminders functionality
+│   │   ├── logger.ts           # Logging utilities
+│   │   ├── applescript.ts      # AppleScript integration
+│   │   └── date.ts             # Date parsing utilities
+│   └── swift/                  # Native Swift integration
+│       ├── bin/                # Compiled Swift binaries
+│       ├── GetReminders.swift  # Swift source for reminders
+│       ├── build.sh            # Swift build script
+│       └── Info.plist          # macOS permissions config
+├── package.json                # Project and dependency config
+├── setup.ts                    # MCP server setup script
+├── tsconfig.json               # TypeScript configuration
+└── README.md                   # Project documentation
 ```
+
+## Tech Stack
+
+- [Bun](https://bun.sh) - JavaScript runtime
+- [TypeScript](https://www.typescriptlang.org/) - Type safety
+- [Model Context Protocol SDK](https://github.com/modelcontextprotocol/sdk) - Server implementation
+- [Swift](https://swift.org) - Native integration with Apple's EventKit
 
 ## License
 
 MIT License
+
+Copyright (c) 2024 Frad Lee
 
 This project was created using `bun init` in bun v1.2.2. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
