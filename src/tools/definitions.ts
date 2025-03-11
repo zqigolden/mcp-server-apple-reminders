@@ -19,7 +19,7 @@ export const TOOLS: Tool[] = [
         dueDate: {
           type: "string",
           description:
-            "Optional due date in format 'YYYY-MM-DD HH:mm:ss' or natural language like 'tomorrow at 3pm'",
+            "Optional due date in format 'YYYY-MM-DD HH:mm:ss' (e.g., '2025-03-12 10:00:00')",
         },
         list: {
           type: "string",

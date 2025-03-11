@@ -37,7 +37,7 @@ This will add the server to your Claude MCP configuration.
    - Create a new reminder with title and optional due date
    - Parameters:
      - `title`: Title of the reminder (required)
-     - `dueDate`: Optional due date (e.g., "tomorrow at 3pm")
+     - `dueDate`: Optional due date in format 'YYYY-MM-DD HH:mm:ss' (e.g., "2025-03-12 10:00:00")
      - `list`: Optional name of the reminders list
      - `note`: Optional note text to attach to the reminder
 
