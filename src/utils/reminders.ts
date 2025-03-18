@@ -1,7 +1,8 @@
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import type { Reminder, ReminderList } from '../types';
+import { fileURLToPath } from 'url';
+import type { Reminder, ReminderList } from '../types/index.js';
 import { logger } from './logger.js';
 
 /**
@@ -11,8 +12,26 @@ export class RemindersManager {
   private binaryPath: string;
   
   constructor() {
-    // Determine the path to the Swift binary
-    this.binaryPath = path.resolve(__dirname, '../../src/swift/bin/GetReminders');
+    // Determine the path to the Swift binary using ES modules compatible approach
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    
+    // In production (compiled), the file structure is:
+    // dist/
+    //   utils/reminders.js
+    //   swift/bin/GetReminders
+    // In development, it's:
+    // src/
+    //   utils/reminders.ts
+    //   swift/bin/GetReminders
+    
+    // Check if we're running from the compiled code
+    const isCompiled = __dirname.includes('dist');
+    const rootDir = isCompiled ? path.resolve(__dirname, '..') : path.resolve(__dirname, '..');
+    this.binaryPath = path.join(rootDir, 'swift', 'bin', 'GetReminders');
+    
+    logger.debug(`Binary path resolved to: ${this.binaryPath}`);
+    logger.debug(`Running from compiled code: ${isCompiled}`);
     
     // Check if the binary exists and is executable
     if (!fs.existsSync(this.binaryPath)) {
@@ -215,7 +234,6 @@ export class RemindersManager {
     
     logger.debug(`Finished parsing: ${lists.length} lists, ${reminders.length} reminders`);
     
-    // 最终验证：确保所有提醒事项都有正确的布尔值
     return {
       lists,
       reminders: reminders.map(reminder => ({

@@ -74,74 +74,41 @@ export async function handleCreateReminder(args: any): Promise<CallToolResult> {
 }
 
 /**
- * Lists reminders from a specific list or all reminders
- * @param args - Arguments for listing reminders
- * @returns Result of the operation with the list of reminders
+ * Lists all reminder lists
+ * @returns Result of the operation with the list of reminder lists in JSON format
  */
-export async function handleListReminders(args: any): Promise<CallToolResult> {
+export async function handleListReminderLists(): Promise<CallToolResult> {
   try {
-    console.log('DEBUG: handleListReminders args:', args);
-    
-    // 确保 showCompleted 是布尔值
-    const showCompleted = args.showCompleted === true;
-    
     // Use the Swift-based reminders manager
-    const { reminders, lists } = await remindersManager.getReminders(showCompleted);
+    const { lists } = await remindersManager.getReminders();
     
-    console.log('DEBUG: Total reminders from Swift:', reminders.length);
+    // Format the lists as JSON
+    const listsJson = JSON.stringify({
+      lists: lists.map(list => ({
+        id: list.id,
+        title: list.title
+      })),
+      total: lists.length
+    }, null, 2);
     
-    // Filter reminders by completion status first, then by list
-    let filteredReminders = reminders;
-    
-    // 使用严格的布尔值比较进行过滤
-    if (!showCompleted) {
-      filteredReminders = filteredReminders.filter(r => {
-        const isCompleted = r.isCompleted === true;
-        console.log(`DEBUG: Filtering reminder "${r.title}":
-          - isCompleted: ${isCompleted}
-          - Raw value: ${r.isCompleted}
-          - Type: ${typeof r.isCompleted}`);
-        return !isCompleted;
-      });
-    }
-    
-    // 按列表过滤
-    if (args.list) {
-      filteredReminders = filteredReminders.filter(r => r.list === args.list);
-    }
-
-    // Format the reminders for display
-    const formattedReminders = filteredReminders.map(r => {
-      let text = `- ${r.title}`;
-      if (r.dueDate) {
-        text += ` (Due: ${r.dueDate})`;
-      }
-      
-      // 使用严格的布尔值比较来显示完成状态
-      if (r.isCompleted === true) {
-        text += " ✓";
-      }
-      
-      return text;
-    }).join("\n");
-
-    const listName = args.list || "all lists";
     return {
       content: [
         {
           type: "text",
-          text: formattedReminders || `No reminders found in ${listName}`,
+          text: listsJson,
         },
       ],
       isError: false,
     };
   } catch (error) {
-    console.error('Error in handleListReminders:', error);
     return {
       content: [
         {
           type: "text",
-          text: `Failed to list reminders: ${(error as Error).message}`,
+          text: JSON.stringify({
+            error: `Failed to list reminder lists: ${(error as Error).message}`,
+            isError: true
+          }, null, 2),
         },
       ],
       isError: true,
@@ -150,35 +117,54 @@ export async function handleListReminders(args: any): Promise<CallToolResult> {
 }
 
 /**
- * Lists all reminder lists
- * @returns Result of the operation with the list of reminder lists
+ * Lists reminders from a specific list or all reminders
+ * @param args - Arguments for listing reminders
+ * @returns Result of the operation with the list of reminders in JSON format
  */
-export async function handleListReminderLists(): Promise<CallToolResult> {
+export async function handleListReminders(args: any): Promise<CallToolResult> {
   try {
-    // Use the Swift-based reminders manager
-    const { lists } = await remindersManager.getReminders();
+    const showCompleted = args.showCompleted === true;
+    const { reminders } = await remindersManager.getReminders(showCompleted);
     
-    // Format the lists for display
-    const formattedLists = lists.map(list => `- ${list.title}`).join("\n");
-    
+    // Filter reminders
+    const filteredReminders = reminders
+      .filter(r => showCompleted || !r.isCompleted)
+      .filter(r => !args.list || r.list === args.list)
+      .map(r => ({
+        title: r.title,
+        list: r.list,
+        isCompleted: r.isCompleted === true,
+        dueDate: r.dueDate || null,
+        notes: r.notes || null
+      }));
+
+    // Create response object
+    const response = {
+      reminders: filteredReminders,
+      total: filteredReminders.length,
+      filter: {
+        list: args.list || 'all',
+        showCompleted
+      }
+    };
+
     return {
-      content: [
-        {
-          type: "text",
-          text: `Available reminder lists:\n${formattedLists}`,
-        },
-      ],
-      isError: false,
+      content: [{
+        type: "text",
+        text: JSON.stringify(response, null, 2)
+      }],
+      isError: false
     };
   } catch (error) {
     return {
-      content: [
-        {
-          type: "text",
-          text: `Failed to list reminder lists: ${(error as Error).message}`,
-        },
-      ],
-      isError: true,
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          error: `Failed to list reminders: ${(error as Error).message}`,
+          isError: true
+        })
+      }],
+      isError: true
     };
   }
 }

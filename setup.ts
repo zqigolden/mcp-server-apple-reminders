@@ -3,39 +3,47 @@
  * Setup script for configuring the Claude desktop app to use this MCP server
  */
 
-import { homedir } from "os";
-import { join } from "path";
+import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Configuration path for Claude desktop app
-const CONFIG_PATH = join(
-  homedir(),
-  "Library/Application Support/Claude/claude_desktop_config.json"
-);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// Load existing config or create empty config
-let config = { mcpServers: {} };
+const CONFIG_PATH = path.join(__dirname, 'config.json');
 
-try {
-  config = await Bun.file(CONFIG_PATH).json();
-} catch {
-  // Config doesn't exist yet, use default empty config
+async function main() {
+  let config: any = {};
+  
+  try {
+    const configData = await fs.promises.readFile(CONFIG_PATH, 'utf-8');
+    config = JSON.parse(configData);
+  } catch (error) {
+    // File doesn't exist or is invalid JSON, start with empty config
+  }
+  
+  // Build Swift binary
+  const nodePath = process.argv[0]; // Current node executable
+  
+  try {
+    execSync('src/swift/build.sh', {
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        command: nodePath,
+      },
+    });
+    
+    config.swiftBinaryBuilt = true;
+    await fs.promises.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2));
+    
+    console.log('Setup completed successfully!');
+    process.exit(0);
+  } catch (error) {
+    console.error('Setup failed:', error);
+    process.exit(1);
+  }
 }
 
-// Get absolute paths
-const bunPath = process.argv[0]; // Current bun executable
-const serverPath = join(import.meta.dir, "./src/index.ts");
-
-// Update configuration
-config.mcpServers = {
-  ...config.mcpServers,
-  "mcp-server-apple-reminders": {
-    command: bunPath,
-    args: [serverPath],
-  },
-};
-
-// Write updated configuration to file
-await Bun.write(CONFIG_PATH, JSON.stringify(config, null, 2));
-
-console.log("\x1b[32m✨ Successfully added mcp-server-apple-reminders server to Claude MCP config! 🎉\x1b[0m");
-console.log(CONFIG_PATH.replace(homedir(), "~"));
+main();

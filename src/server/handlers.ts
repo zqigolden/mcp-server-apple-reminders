@@ -45,12 +45,19 @@ export function registerHandlers(server: Server): void {
       const script = createRemindersScript(scriptBody);
       const lists = executeAppleScript(script);
       
+      // Parse the lists into JSON format
+      const listsArray = lists.split(',').map(list => list.trim());
+      const jsonResponse = JSON.stringify({
+        lists: listsArray,
+        total: listsArray.length
+      });
+      
       return {
         contents: [
           {
             uri,
-            mimeType: "text/plain",
-            text: lists,
+            mimeType: "application/json",
+            text: jsonResponse,
           },
         ],
       };
