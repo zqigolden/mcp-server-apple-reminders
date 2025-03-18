@@ -1,6 +1,6 @@
 {
   "name": "mcp-server-apple-reminders",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "MCP server that provides native integration with Apple Reminders on macOS.",
   "module": "src/index.js",
   "type": "module",

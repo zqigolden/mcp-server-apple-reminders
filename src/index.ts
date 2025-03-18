@@ -10,7 +10,7 @@ import { debugLog } from "./utils/logger.js";
 // Server configuration
 const SERVER_CONFIG = {
   name: "mcp-server-apple-reminders",
-  version: "1.0.0",
+  version: "0.3.0",
 };
 
 /**
