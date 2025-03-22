@@ -2,18 +2,15 @@
   "name": "mcp-server-apple-reminders",
   "version": "0.3.0",
   "description": "MCP server that provides native integration with Apple Reminders on macOS.",
-  "module": "src/index.js",
-  "type": "module",
-  "main": "dist/index.js",
-  "bin": {
-    "mcp-server-apple-reminders": "./dist/index.js"
+  "author": "Frad Lee <https://frad.me>",
+  "license": "MIT",
+  "homepage": "https://frad.me",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fradser/mcp-server-apple-reminders.git"
   },
-  "scripts": {
-    "test": "jest",
-    "build:ts": "tsc",
-    "build:swift": "src/swift/build.sh && mkdir -p dist/swift/bin && cp -p src/swift/bin/GetReminders dist/swift/bin/GetReminders",
-    "start": "node dist/index.js",
-    "dev": "tsc --watch"
+  "bugs": {
+    "url": "https://github.com/fradser/mcp-server-apple-reminders/issues"
   },
   "keywords": [
     "mcp",
@@ -21,9 +18,19 @@
     "reminders",
     "automation"
   ],
-  "author": "Frad Lee <https://frad.me>",
-  "homepage": "https://frad.me",
-  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "src/index.js",
+  "bin": {
+    "mcp-server-apple-reminders": "./dist/index.js"
+  },
+  "scripts": {
+    "build:ts": "tsc",
+    "build:swift": "src/swift/build.sh && mkdir -p dist/swift/bin && cp -p src/swift/bin/GetReminders dist/swift/bin/GetReminders",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "test": "jest"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.5.0",
     "arktype": "^2.0.4",
@@ -31,12 +38,12 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.12",
     "@types/moment": "^2.13.0",
     "@types/node": "^20.0.0",
-    "typescript": "^5.8.2",
-    "@types/jest": "^29.5.12",
     "jest": "^29.7.0",
-    "ts-jest": "^29.1.2"
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.8.2"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
