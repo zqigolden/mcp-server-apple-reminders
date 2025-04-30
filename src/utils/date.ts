@@ -16,21 +16,20 @@ import { debugLog } from "./logger.js";
  */
 export function parseDate(dateStr: string): string {
   try {
-    // First try parsing as exact date
-    let parsedDate = moment(dateStr);
+    // Try parsing with moment, expecting 'YYYY-MM-DD HH:mm:ss' or other moment-parsable formats
+    const parsedDate = moment(dateStr, [
+      "YYYY-MM-DD HH:mm:ss", // Explicitly handle the documented format first
+      moment.ISO_8601,       // Handle ISO formats
+      "YYYY-MM-DD",          // Handle date-only format
+    ], true); // Use strict parsing
 
-    // If not valid, try parsing as natural language
+    // If not valid, throw error
     if (!parsedDate.isValid()) {
-      parsedDate = moment(new Date(dateStr));
+      throw new Error(`Invalid or unsupported date format: ${dateStr}. Please use 'YYYY-MM-DD HH:mm:ss'.`);
     }
 
-    // If still not valid, throw error
-    if (!parsedDate.isValid()) {
-      throw new Error(`Invalid date format: ${dateStr}`);
-    }
-
-    // Format date for AppleScript in a simpler format
-    return parsedDate.format("M/D/YYYY H:mm:ss");
+    // Format date for AppleScript
+    return parsedDate.format("M/D/YYYY HH:mm:ss");
   } catch (error) {
     debugLog("Date parsing error:", error);
     throw new Error(`Invalid date format: ${dateStr}`);
