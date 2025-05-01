@@ -34,8 +34,8 @@ export function parseDate(dateStr: string): string {
     try {
         const result = execSync('defaults read -g AppleICUForce24HourTime').toString().trim();
         use24Hour = result === '1';
-    } catch (err) {
-        debugLog("Could not determine 24-hour setting, defaulting to 12-hour format.");
+    } catch (error) {
+      debugLog(`Could not determine 24-hour setting due to error: ${error}. Defaulting to 12-hour format.`);
         use24Hour = false;
     }
 
@@ -46,9 +46,7 @@ export function parseDate(dateStr: string): string {
         debugLog("Parsed date (24-hour):", formattedDate);
     } else {
         // Format as 12-hour time with AM/PM
-        const hour = parsedDate.hour();
-        const amPm = hour < 12 ? 'AM' : 'PM';
-        formattedDate = parsedDate.format("M/D/YYYY h:mm:ss") + ` ${amPm}`;
+        formattedDate = parsedDate.format("M/D/YYYY h:mm:ss A");
         debugLog("Parsed date (12-hour):", formattedDate);
     }
     return formattedDate;
