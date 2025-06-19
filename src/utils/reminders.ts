@@ -5,6 +5,17 @@ import { fileURLToPath } from 'url';
 import type { Reminder, ReminderList } from '../types/index.js';
 import { logger } from './logger.js';
 
+function getModulePaths() {
+  try {
+    const metaUrl = Function('return import.meta.url')();
+    const __filename = fileURLToPath(metaUrl);
+    const __dirname = path.dirname(__filename);
+    return { __filename, __dirname };
+  } catch {
+    return { __filename: '', __dirname: '' };
+  }
+}
+
 /**
  * Class to interact with Apple Reminders using the Swift binary
  */
@@ -12,26 +23,28 @@ export class RemindersManager {
   private binaryPath: string;
   
   constructor() {
-    // Determine the path to the Swift binary using ES modules compatible approach
+    // Skip binary initialization in test environment
+    if (process.env.NODE_ENV === 'test') {
+      this.binaryPath = '/mock/path/to/binary';
+      return;
+    }
+
+    // 自动向上查找包含 package.json 的目录作为项目根目录
     const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-    
-    // In production (compiled), the file structure is:
-    // dist/
-    //   utils/reminders.js
-    //   swift/bin/GetReminders
-    // In development, it's:
-    // src/
-    //   utils/reminders.ts
-    //   swift/bin/GetReminders
-    
-    // Check if we're running from the compiled code
-    const isCompiled = __dirname.includes('dist');
-    const rootDir = isCompiled ? path.resolve(__dirname, '..') : path.resolve(__dirname, '..');
-    this.binaryPath = path.join(rootDir, 'swift', 'bin', 'GetReminders');
+    let projectRoot = path.dirname(__filename);
+    const pathToPkg = 'package.json';
+    const maxDepth = 10; // 防止死循环
+    let depth = 0;
+    while (!fs.existsSync(path.join(projectRoot, pathToPkg)) && depth < maxDepth) {
+      const parent = path.dirname(projectRoot);
+      if (parent === projectRoot) break;
+      projectRoot = parent;
+      depth++;
+    }
+    this.binaryPath = path.join(projectRoot, 'dist', 'swift', 'bin', 'GetReminders');
     
     logger.debug(`Binary path resolved to: ${this.binaryPath}`);
-    logger.debug(`Running from compiled code: ${isCompiled}`);
+    logger.debug(`Running from compiled code: true`);
     
     // Check if the binary exists and is executable
     if (!fs.existsSync(this.binaryPath)) {

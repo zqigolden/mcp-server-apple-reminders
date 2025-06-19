@@ -24,6 +24,7 @@ export function createServer(config: ServerConfig): Server {
       capabilities: {
         resources: {},
         tools: {},
+        prompts: {},
       },
     }
   );

@@ -8,8 +8,18 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+function getModulePaths() {
+  try {
+    const metaUrl = Function('return import.meta.url')();
+    const __filename = fileURLToPath(metaUrl);
+    const __dirname = path.dirname(__filename);
+    return { __filename, __dirname };
+  } catch {
+    return { __filename: '', __dirname: '' };
+  }
+}
+
+const { __dirname } = getModulePaths();
 
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 
