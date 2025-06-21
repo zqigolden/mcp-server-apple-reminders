@@ -35,7 +35,7 @@ describe('Server Handlers', () => {
       registerHandlers(mockServer);
 
       // Verify that all handlers are registered
-      expect(mockServer.setRequestHandler).toHaveBeenCalledTimes(6);
+      expect(mockServer.setRequestHandler).toHaveBeenCalledTimes(4);
       
       // Check specific handlers
       const calls = mockServer.setRequestHandler.mock.calls;

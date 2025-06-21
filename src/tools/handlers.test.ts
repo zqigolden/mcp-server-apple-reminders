@@ -1,7 +1,15 @@
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import type { Reminder, ReminderList } from '../types/index.js';
 import { remindersManager } from '../utils/reminders.js';
-import { handleListReminders } from './handlers.js';
+import { 
+  handleListReminders,
+  handleUpdateReminder,
+  handleDeleteReminder,
+  handleMoveReminder 
+} from './handlers.js';
+
+// Mock the reminders module to avoid import.meta issues
+jest.mock('../utils/reminders.js');
 
 // Mock the reminders manager with correct return type
 const mockGetReminders = jest.fn(async (showCompleted: boolean = false) => ({
@@ -159,5 +167,88 @@ describe('handleListReminders', () => {
     expect(parsedJson.reminders).toHaveLength(1);
     expect(parsedJson.filter.list).toBe('Work');
     expect(parsedJson.reminders[0].title).toBe('Work Task');
+  });
+
+  test('should filter reminders by search term', async () => {
+    const mockReminders: Reminder[] = [
+      {
+        title: 'Meeting with client',
+        list: 'Work',
+        isCompleted: false,
+        notes: 'Discuss project timeline'
+      },
+      {
+        title: 'Buy groceries',
+        list: 'Personal',
+        isCompleted: false,
+        notes: 'Get milk and eggs'
+      },
+      {
+        title: 'Team meeting',
+        list: 'Work',
+        isCompleted: false
+      }
+    ];
+
+    mockGetReminders.mockResolvedValue({
+      reminders: mockReminders,
+      lists: []
+    });
+
+    const result = await handleListReminders({ search: 'meeting' });
+    
+    validateJsonResponse(result);
+    const parsedJson = JSON.parse(result.content[0].text as string);
+    
+    expect(parsedJson.reminders).toHaveLength(2);
+    expect(parsedJson.filter.search).toBe('meeting');
+  });
+
+  test('should filter reminders by due date', async () => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const mockReminders: Reminder[] = [
+      {
+        title: 'Due Today',
+        list: 'Work',
+        isCompleted: false,
+        dueDate: today.toISOString()
+      },
+      {
+        title: 'Due Tomorrow',
+        list: 'Work',
+        isCompleted: false,
+        dueDate: tomorrow.toISOString()
+      },
+      {
+        title: 'Overdue',
+        list: 'Work',
+        isCompleted: false,
+        dueDate: yesterday.toISOString()
+      },
+      {
+        title: 'No Due Date',
+        list: 'Work',
+        isCompleted: false
+      }
+    ];
+
+    mockGetReminders.mockResolvedValue({
+      reminders: mockReminders,
+      lists: []
+    });
+
+    const result = await handleListReminders({ dueWithin: 'today' });
+    
+    validateJsonResponse(result);
+    const parsedJson = JSON.parse(result.content[0].text as string);
+    
+    expect(parsedJson.reminders).toHaveLength(1);
+    expect(parsedJson.reminders[0].title).toBe('Due Today');
+    expect(parsedJson.filter.dueWithin).toBe('today');
   });
 });
