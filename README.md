@@ -10,6 +10,7 @@ A Model Context Protocol (MCP) server that provides native integration with Appl
 
 - List all reminders and reminder lists
 - Create new reminders with titles and optional details
+- Update existing reminders (title, notes, due date, completion status)
 - Mark reminders as complete/incomplete
 - Add notes to reminders
 - Set due dates for reminders
@@ -118,6 +119,21 @@ Add a reminder to "Call mom" with a note "Ask about weekend plans".
 Create a reminder in my "Work" list to "Submit report" due next Friday.
 ```
 
+### Create Reminders
+```
+Create a reminder to "Buy groceries" for tomorrow at 5 PM.
+Add a reminder to "Call mom" with a note "Ask about weekend plans".
+Create a reminder in my "Work" list to "Submit report" due next Friday.
+```
+
+### Update Reminders
+```
+Update the reminder "Buy groceries" with a new title "Buy organic groceries".
+Update "Call mom" reminder to be due today at 6 PM.
+Update the reminder "Submit report" and mark it as completed.
+Change the notes on "Buy groceries" to "Don't forget milk and eggs".
+```
+
 ### Managing Reminders
 ```
 Show me all my reminders.
@@ -158,6 +174,31 @@ Example response:
     {
       "type": "text",
       "text": "Successfully created reminder: Buy groceries with notes"
+    }
+  ],
+  "isError": false
+}
+```
+
+### Update Reminder
+
+`update_reminder(title: string, newTitle?: string, dueDate?: string, note?: string, completed?: boolean, list?: string)`
+
+Updates an existing reminder by title. Note: If multiple reminders have the same title, only the first one found will be updated.
+- `title`: Current title of the reminder to update (required)
+- `newTitle`: New title for the reminder (optional)
+- `dueDate`: New due date in format 'YYYY-MM-DD HH:mm:ss' (optional)
+- `note`: New note text (optional)
+- `completed`: Mark reminder as completed/uncompleted (optional)
+- `list`: Name of the list containing the reminder (recommended for accuracy)
+
+Example response:
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Successfully updated reminder \"Buy groceries\": title to \"Buy organic groceries\", notes"
     }
   ],
   "isError": false

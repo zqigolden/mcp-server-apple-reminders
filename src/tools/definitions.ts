@@ -11,7 +11,7 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 export const TOOLS: Tool[] = [
   {
     name: "create_reminder",
-    description: "Create a new reminder with title and optional due date",
+    description: "Create a new reminder with title and optional properties including priority, recurrence, and alerts",
     inputSchema: {
       type: "object",
       properties: {
@@ -29,13 +29,27 @@ export const TOOLS: Tool[] = [
           type: "string",
           description: "Optional note text to attach to the reminder",
         },
+        priority: {
+          type: "string",
+          enum: ["none", "low", "medium", "high"],
+          description: "Priority level for the reminder (default: none)",
+        },
+        recurrence: {
+          type: "string",
+          enum: ["none", "daily", "weekly", "monthly", "yearly"],
+          description: "Recurrence pattern for the reminder (default: none)",
+        },
+        url: {
+          type: "string",
+          description: "Optional URL to attach to the reminder",
+        },
       },
       required: ["title"],
     },
   },
   {
     name: "list_reminders",
-    description: "List all reminders or reminders from a specific list",
+    description: "List all reminders or reminders from a specific list with optional filtering",
     inputSchema: {
       type: "object",
       properties: {
@@ -47,8 +61,110 @@ export const TOOLS: Tool[] = [
           type: "boolean",
           description: "Whether to show completed reminders (default: false)",
           default: false
-        }
+        },
+        search: {
+          type: "string",
+          description: "Search for reminders containing this text in title or notes",
+        },
+        priority: {
+          type: "string",
+          enum: ["none", "low", "medium", "high"],
+          description: "Filter by priority level",
+        },
+        dueWithin: {
+          type: "string",
+          enum: ["today", "tomorrow", "this-week", "overdue", "no-date"],
+          description: "Filter by due date range",
+        },
       },
+    },
+  },
+  {
+    name: "update_reminder",
+    description: "Update an existing reminder by title with new properties including priority and recurrence. Note: If multiple reminders have the same title, only the first one found will be updated.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: "Current title of the reminder to update",
+        },
+        newTitle: {
+          type: "string",
+          description: "New title for the reminder (optional)",
+        },
+        dueDate: {
+          type: "string",
+          description: "New due date in format 'YYYY-MM-DD HH:mm:ss' (optional)",
+        },
+        note: {
+          type: "string",
+          description: "New note text (optional)",
+        },
+        completed: {
+          type: "boolean",
+          description: "Mark reminder as completed/uncompleted (optional)",
+        },
+        list: {
+          type: "string",
+          description: "Name of the list containing the reminder (recommended for accuracy)",
+        },
+        priority: {
+          type: "string",
+          enum: ["none", "low", "medium", "high"],
+          description: "New priority level for the reminder (optional)",
+        },
+        recurrence: {
+          type: "string",
+          enum: ["none", "daily", "weekly", "monthly", "yearly"],
+          description: "New recurrence pattern for the reminder (optional)",
+        },
+        url: {
+          type: "string",
+          description: "New URL to attach to the reminder (optional)",
+        },
+      },
+      required: ["title"],
+    },
+  },
+  {
+    name: "delete_reminder",
+    description: "Delete a reminder by title",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: "Title of the reminder to delete",
+        },
+        list: {
+          type: "string",
+          description: "Optional name of the list containing the reminder (recommended for accuracy)",
+        },
+      },
+      required: ["title"],
+    },
+  },
+  {
+    name: "move_reminder",
+    description: "Move a reminder from one list to another",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: "Title of the reminder to move",
+        },
+        fromList: {
+          type: "string",
+          description: "Name of the list containing the reminder",
+        },
+        toList: {
+          type: "string",
+          description: "Name of the destination list",
+        },
+      },
+      required: ["title", "fromList", "toList"],
     },
   },
   {

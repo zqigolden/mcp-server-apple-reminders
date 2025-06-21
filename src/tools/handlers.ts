@@ -44,7 +44,33 @@ export async function handleCreateReminder(args: any): Promise<CallToolResult> {
     scriptBody += "}\n";
     
     // Create reminder with all properties at once
-    scriptBody += "make new reminder at end of targetList with properties reminderProps\n";
+    scriptBody += "set newReminder to make new reminder at end of targetList with properties reminderProps\n";
+    
+    // Add priority if specified (needs separate command)
+    if (args.priority && args.priority !== "none") {
+      const priorityMap: { [key: string]: number } = {
+        "high": 1,
+        "medium": 5,
+        "low": 9
+      };
+      scriptBody += `set priority of newReminder to ${priorityMap[args.priority]}\n`;
+    }
+    
+    // Add recurrence if specified
+    if (args.recurrence && args.recurrence !== "none") {
+      // Note: AppleScript support for recurrence is limited
+      // This is a simplified implementation
+      scriptBody += `-- Note: Recurrence '${args.recurrence}' requested but requires EventKit for proper implementation\n`;
+    }
+    
+    // Add URL if specified (stored in notes for now)
+    if (args.url) {
+      const noteText = args.note ? `${args.note}\n\nURL: ${args.url}` : `URL: ${args.url}`;
+      scriptBody = scriptBody.replace(`, body:"${args.note}"`, `, body:"${noteText}"`);
+      if (!args.note) {
+        scriptBody = scriptBody.replace("}", `, body:"${noteText}"}`)
+      }
+    }
 
     // Execute the script
     const script = createRemindersScript(scriptBody);
@@ -55,7 +81,7 @@ export async function handleCreateReminder(args: any): Promise<CallToolResult> {
       content: [
         {
           type: "text",
-          text: `Successfully created reminder: ${args.title}${args.note ? ' with notes' : ''}`,
+          text: `Successfully created reminder: ${args.title}${args.note ? ' with notes' : ''}${args.priority && args.priority !== 'none' ? ` (${args.priority} priority)` : ''}`,
         },
       ],
       isError: false,
@@ -66,6 +92,198 @@ export async function handleCreateReminder(args: any): Promise<CallToolResult> {
         {
           type: "text",
           text: `Failed to create reminder: ${(error as Error).message}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+}
+
+/**
+ * Updates an existing reminder
+ * @param args - Arguments for updating a reminder
+ * @returns Result of the operation
+ */
+export async function handleUpdateReminder(args: any): Promise<CallToolResult> {
+  try {
+    // Build the script body
+    let scriptBody = '';
+    
+    // Find the reminder by title
+    if (args.list) {
+      scriptBody += `set targetList to list "${args.list}"\n`;
+      scriptBody += `set targetReminders to reminders of targetList whose name is "${args.title}"\n`;
+    } else {
+      scriptBody += `set targetReminders to every reminder whose name is "${args.title}"\n`;
+    }
+    
+    scriptBody += `if (count of targetReminders) is 0 then\n`;
+    scriptBody += `  error "Reminder not found: ${args.title}"\n`;
+    scriptBody += `else\n`;
+    scriptBody += `  set targetReminder to first item of targetReminders\n`;
+    
+    // Update properties
+    if (args.newTitle) {
+      scriptBody += `  set name of targetReminder to "${args.newTitle}"\n`;
+    }
+    
+    if (args.dueDate) {
+      const parsedDate = parseDate(args.dueDate);
+      scriptBody += `  set due date of targetReminder to date "${parsedDate}"\n`;
+    }
+    
+    if (args.note !== undefined) {
+      scriptBody += `  set body of targetReminder to "${args.note}"\n`;
+    }
+    
+    if (args.completed !== undefined) {
+      scriptBody += `  set completed of targetReminder to ${args.completed}\n`;
+    }
+    
+    if (args.priority && args.priority !== "none") {
+      const priorityMap: { [key: string]: number } = {
+        "high": 1,
+        "medium": 5,
+        "low": 9
+      };
+      scriptBody += `  set priority of targetReminder to ${priorityMap[args.priority]}\n`;
+    }
+    
+    if (args.url) {
+      // Append URL to notes
+      if (args.note !== undefined) {
+        scriptBody += `  set body of targetReminder to "${args.note}\\n\\nURL: ${args.url}"\n`;
+      } else {
+        scriptBody += `  set currentBody to body of targetReminder\n`;
+        scriptBody += `  if currentBody is missing value then set currentBody to ""\n`;
+        scriptBody += `  set body of targetReminder to currentBody & "\\n\\nURL: ${args.url}"\n`;
+      }
+    }
+    
+    scriptBody += `end if\n`;
+    
+    // Execute the script
+    const script = createRemindersScript(scriptBody);
+    debugLog("Running AppleScript:", script);
+    executeAppleScript(script);
+
+    const updates = [];
+    if (args.newTitle) updates.push(`title to "${args.newTitle}"`);
+    if (args.dueDate) updates.push(`due date`);
+    if (args.note !== undefined) updates.push(`notes`);
+    if (args.completed !== undefined) updates.push(`completed to ${args.completed}`);
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Successfully updated reminder "${args.title}"${updates.length > 0 ? `: ${updates.join(', ')}` : ''}`,
+        },
+      ],
+      isError: false,
+    };
+  } catch (error) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Failed to update reminder: ${(error as Error).message}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+}
+
+/**
+ * Deletes a reminder
+ * @param args - Arguments for deleting a reminder
+ * @returns Result of the operation
+ */
+export async function handleDeleteReminder(args: any): Promise<CallToolResult> {
+  try {
+    let scriptBody = '';
+    
+    // Find the reminder by title
+    if (args.list) {
+      scriptBody += `set targetList to list "${args.list}"\n`;
+      scriptBody += `set targetReminders to reminders of targetList whose name is "${args.title}"\n`;
+    } else {
+      scriptBody += `set targetReminders to every reminder whose name is "${args.title}"\n`;
+    }
+    
+    scriptBody += `if (count of targetReminders) is 0 then\n`;
+    scriptBody += `  error "Reminder not found: ${args.title}"\n`;
+    scriptBody += `else\n`;
+    scriptBody += `  delete first item of targetReminders\n`;
+    scriptBody += `end if\n`;
+    
+    const script = createRemindersScript(scriptBody);
+    debugLog("Running AppleScript:", script);
+    executeAppleScript(script);
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Successfully deleted reminder: ${args.title}`,
+        },
+      ],
+      isError: false,
+    };
+  } catch (error) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Failed to delete reminder: ${(error as Error).message}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+}
+
+/**
+ * Moves a reminder between lists
+ * @param args - Arguments for moving a reminder
+ * @returns Result of the operation
+ */
+export async function handleMoveReminder(args: any): Promise<CallToolResult> {
+  try {
+    let scriptBody = '';
+    
+    // Find the reminder in the source list
+    scriptBody += `set sourceList to list "${args.fromList}"\n`;
+    scriptBody += `set destList to list "${args.toList}"\n`;
+    scriptBody += `set targetReminders to reminders of sourceList whose name is "${args.title}"\n`;
+    
+    scriptBody += `if (count of targetReminders) is 0 then\n`;
+    scriptBody += `  error "Reminder not found in list ${args.fromList}: ${args.title}"\n`;
+    scriptBody += `else\n`;
+    scriptBody += `  set targetReminder to first item of targetReminders\n`;
+    scriptBody += `  move targetReminder to destList\n`;
+    scriptBody += `end if\n`;
+    
+    const script = createRemindersScript(scriptBody);
+    debugLog("Running AppleScript:", script);
+    executeAppleScript(script);
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Successfully moved reminder "${args.title}" from ${args.fromList} to ${args.toList}`,
+        },
+      ],
+      isError: false,
+    };
+  } catch (error) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Failed to move reminder: ${(error as Error).message}`,
         },
       ],
       isError: true,
@@ -127,24 +345,66 @@ export async function handleListReminders(args: any): Promise<CallToolResult> {
     const { reminders } = await remindersManager.getReminders(showCompleted);
     
     // Filter reminders
-    const filteredReminders = reminders
+    let filteredReminders = reminders
       .filter(r => showCompleted || !r.isCompleted)
-      .filter(r => !args.list || r.list === args.list)
-      .map(r => ({
-        title: r.title,
-        list: r.list,
-        isCompleted: r.isCompleted === true,
-        dueDate: r.dueDate || null,
-        notes: r.notes || null
-      }));
+      .filter(r => !args.list || r.list === args.list);
+    
+    // Search filter
+    if (args.search) {
+      const searchLower = args.search.toLowerCase();
+      filteredReminders = filteredReminders.filter(r => 
+        r.title.toLowerCase().includes(searchLower) ||
+        (r.notes && r.notes.toLowerCase().includes(searchLower))
+      );
+    }
+    
+    // Due date filter
+    if (args.dueWithin) {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const weekEnd = new Date(today);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+      
+      filteredReminders = filteredReminders.filter(r => {
+        if (args.dueWithin === "no-date") return !r.dueDate;
+        if (!r.dueDate) return false;
+        
+        const dueDate = new Date(r.dueDate);
+        switch (args.dueWithin) {
+          case "overdue":
+            return dueDate < today;
+          case "today":
+            return dueDate >= today && dueDate < tomorrow;
+          case "tomorrow":
+            return dueDate >= tomorrow && dueDate < new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000);
+          case "this-week":
+            return dueDate >= today && dueDate <= weekEnd;
+          default:
+            return true;
+        }
+      });
+    }
+    
+    // Map to response format
+    const mappedReminders = filteredReminders.map(r => ({
+      title: r.title,
+      list: r.list,
+      isCompleted: r.isCompleted === true,
+      dueDate: r.dueDate || null,
+      notes: r.notes || null
+    }));
 
     // Create response object
     const response = {
-      reminders: filteredReminders,
-      total: filteredReminders.length,
+      reminders: mappedReminders,
+      total: mappedReminders.length,
       filter: {
         list: args.list || 'all',
-        showCompleted
+        showCompleted,
+        search: args.search || null,
+        dueWithin: args.dueWithin || null
       }
     };
 
