@@ -11,7 +11,7 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 export const TOOLS: Tool[] = [
   {
     name: "create_reminder",
-    description: "Create a new reminder with title and optional properties including priority, recurrence, and alerts",
+    description: "Create a new reminder with title and optional properties",
     inputSchema: {
       type: "object",
       properties: {
@@ -28,16 +28,6 @@ export const TOOLS: Tool[] = [
         note: {
           type: "string",
           description: "Optional note text to attach to the reminder",
-        },
-        priority: {
-          type: "string",
-          enum: ["none", "low", "medium", "high"],
-          description: "Priority level for the reminder (default: none)",
-        },
-        recurrence: {
-          type: "string",
-          enum: ["none", "daily", "weekly", "monthly", "yearly"],
-          description: "Recurrence pattern for the reminder (default: none)",
         },
         url: {
           type: "string",
@@ -66,11 +56,6 @@ export const TOOLS: Tool[] = [
           type: "string",
           description: "Search for reminders containing this text in title or notes",
         },
-        priority: {
-          type: "string",
-          enum: ["none", "low", "medium", "high"],
-          description: "Filter by priority level",
-        },
         dueWithin: {
           type: "string",
           enum: ["today", "tomorrow", "this-week", "overdue", "no-date"],
@@ -81,7 +66,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "update_reminder",
-    description: "Update an existing reminder by title with new properties including priority and recurrence. Note: If multiple reminders have the same title, only the first one found will be updated.",
+    description: "Update an existing reminder by title. Note: If multiple reminders have the same title, only the first one found will be updated.",
     inputSchema: {
       type: "object",
       properties: {
@@ -108,16 +93,6 @@ export const TOOLS: Tool[] = [
         list: {
           type: "string",
           description: "Name of the list containing the reminder (recommended for accuracy)",
-        },
-        priority: {
-          type: "string",
-          enum: ["none", "low", "medium", "high"],
-          description: "New priority level for the reminder (optional)",
-        },
-        recurrence: {
-          type: "string",
-          enum: ["none", "daily", "weekly", "monthly", "yearly"],
-          description: "New recurrence pattern for the reminder (optional)",
         },
         url: {
           type: "string",

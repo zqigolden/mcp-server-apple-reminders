@@ -159,13 +159,14 @@ This server provides the following MCP services for interacting with Apple Remin
 
 ### Create Reminder
 
-`create_reminder(title: string, dueDate?: string, list?: string, note?: string)`
+`create_reminder(title: string, dueDate?: string, list?: string, note?: string, url?: string)`
 
 Creates a new reminder with the specified title and optional parameters:
 - `title`: Title of the reminder (required)
 - `dueDate`: Optional due date in format 'YYYY-MM-DD HH:mm:ss' (e.g., '2025-03-12 10:00:00')
 - `list`: Optional name of the reminders list to add to
 - `note`: Optional note text to attach to the reminder
+- `url`: Optional URL to attach to the reminder
 
 Example response:
 ```json
@@ -182,7 +183,7 @@ Example response:
 
 ### Update Reminder
 
-`update_reminder(title: string, newTitle?: string, dueDate?: string, note?: string, completed?: boolean, list?: string)`
+`update_reminder(title: string, newTitle?: string, dueDate?: string, note?: string, completed?: boolean, list?: string, url?: string)`
 
 Updates an existing reminder by title. Note: If multiple reminders have the same title, only the first one found will be updated.
 - `title`: Current title of the reminder to update (required)
@@ -191,6 +192,7 @@ Updates an existing reminder by title. Note: If multiple reminders have the same
 - `note`: New note text (optional)
 - `completed`: Mark reminder as completed/uncompleted (optional)
 - `list`: Name of the list containing the reminder (recommended for accuracy)
+- `url`: New URL to attach to the reminder (optional)
 
 Example response:
 ```json
@@ -207,11 +209,13 @@ Example response:
 
 ### List Reminders
 
-`list_reminders(list?: string, showCompleted?: boolean)`
+`list_reminders(list?: string, showCompleted?: boolean, search?: string, dueWithin?: string)`
 
 Lists all reminders or reminders from a specific list:
 - `list`: Optional name of the reminders list to show
 - `showCompleted`: Whether to show completed reminders (default: false)
+- `search`: Search for reminders containing this text in title or notes
+- `dueWithin`: Filter by due date range ("today", "tomorrow", "this-week", "overdue", "no-date")
 
 Example response:
 ```json

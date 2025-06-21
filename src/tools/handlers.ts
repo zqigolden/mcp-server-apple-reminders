@@ -46,23 +46,6 @@ export async function handleCreateReminder(args: any): Promise<CallToolResult> {
     // Create reminder with all properties at once
     scriptBody += "set newReminder to make new reminder at end of targetList with properties reminderProps\n";
     
-    // Add priority if specified (needs separate command)
-    if (args.priority && args.priority !== "none") {
-      const priorityMap: { [key: string]: number } = {
-        "high": 1,
-        "medium": 5,
-        "low": 9
-      };
-      scriptBody += `set priority of newReminder to ${priorityMap[args.priority]}\n`;
-    }
-    
-    // Add recurrence if specified
-    if (args.recurrence && args.recurrence !== "none") {
-      // Note: AppleScript support for recurrence is limited
-      // This is a simplified implementation
-      scriptBody += `-- Note: Recurrence '${args.recurrence}' requested but requires EventKit for proper implementation\n`;
-    }
-    
     // Add URL if specified (stored in notes for now)
     if (args.url) {
       const noteText = args.note ? `${args.note}\n\nURL: ${args.url}` : `URL: ${args.url}`;
@@ -81,7 +64,7 @@ export async function handleCreateReminder(args: any): Promise<CallToolResult> {
       content: [
         {
           type: "text",
-          text: `Successfully created reminder: ${args.title}${args.note ? ' with notes' : ''}${args.priority && args.priority !== 'none' ? ` (${args.priority} priority)` : ''}`,
+          text: `Successfully created reminder: ${args.title}${args.note ? ' with notes' : ''}`,
         },
       ],
       isError: false,
@@ -138,15 +121,6 @@ export async function handleUpdateReminder(args: any): Promise<CallToolResult> {
     
     if (args.completed !== undefined) {
       scriptBody += `  set completed of targetReminder to ${args.completed}\n`;
-    }
-    
-    if (args.priority && args.priority !== "none") {
-      const priorityMap: { [key: string]: number } = {
-        "high": 1,
-        "medium": 5,
-        "low": 9
-      };
-      scriptBody += `  set priority of targetReminder to ${priorityMap[args.priority]}\n`;
     }
     
     if (args.url) {
