@@ -1,0 +1,11 @@
+---
+description: Must for every new query
+globs: 
+alwaysApply: false
+---
+To answer the user's query, follow these steps:
+
+1.  **Query DeepWiki:** Use the `ask_question` command on the `fradser/mcp-server-apple-reminders` repository to find initial information.
+2.  **Get Library Details:** Use `resolve-library-id` and then `get-library-docs` in context7 MCP to gather more specific library documentation.
+3.  **Conduct a Web Search:** Look for any additional relevant information online.
+4.  **Synthesize and Answer:** Combine all findings from the previous steps to provide a complete and comprehensive answer.
