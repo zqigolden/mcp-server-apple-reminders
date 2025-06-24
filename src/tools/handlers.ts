@@ -4,7 +4,7 @@
  */
 
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { createRemindersScript, executeAppleScript } from "../utils/applescript.js";
+import { createRemindersScript, executeAppleScript, quoteAppleScriptString } from "../utils/applescript.js";
 import { parseDate } from "../utils/date.js";
 import { debugLog } from "../utils/logger.js";
 import { remindersManager } from "../utils/reminders.js";
@@ -16,44 +16,45 @@ import { remindersManager } from "../utils/reminders.js";
  */
 export async function handleCreateReminder(args: any): Promise<CallToolResult> {
   try {
+    // Prepare note content by combining note and URL if provided
+    let finalNote = args.note || "";
+    if (args.url) {
+      if (finalNote) {
+        finalNote = `${finalNote}\n\nURL: ${args.url}`;
+      } else {
+        finalNote = `URL: ${args.url}`;
+      }
+    }
+
     // Build the script body
     let scriptBody = '';
 
     // If list is specified, target that list
     if (args.list) {
-      scriptBody += `set targetList to list "${args.list}"\n`;
+      scriptBody += `set targetList to list ${quoteAppleScriptString(args.list)}\n`;
     } else {
       scriptBody += "set targetList to default list\n";
     }
 
     // Build properties object for the reminder
-    scriptBody += "set reminderProps to {name:\"" + args.title + "\"";
+    scriptBody += `set reminderProps to {name:${quoteAppleScriptString(args.title)}`;
     
     // Add due date if specified
     if (args.dueDate) {
       const parsedDate = parseDate(args.dueDate);
       debugLog("Parsed date:", parsedDate);
-      scriptBody += `, due date:date "${parsedDate}"`;
+      scriptBody += `, due date:date ${quoteAppleScriptString(parsedDate)}`;
     }
     
-    // Add note if specified
-    if (args.note) {
-      scriptBody += `, body:"${args.note}"`;
+    // Add note if specified (including URL if provided)
+    if (finalNote) {
+      scriptBody += `, body:${quoteAppleScriptString(finalNote)}`;
     }
     
     scriptBody += "}\n";
     
     // Create reminder with all properties at once
     scriptBody += "set newReminder to make new reminder at end of targetList with properties reminderProps\n";
-    
-    // Add URL if specified (stored in notes for now)
-    if (args.url) {
-      const noteText = args.note ? `${args.note}\n\nURL: ${args.url}` : `URL: ${args.url}`;
-      scriptBody = scriptBody.replace(`, body:"${args.note}"`, `, body:"${noteText}"`);
-      if (!args.note) {
-        scriptBody = scriptBody.replace("}", `, body:"${noteText}"}`)
-      }
-    }
 
     // Execute the script
     const script = createRemindersScript(scriptBody);
@@ -64,7 +65,7 @@ export async function handleCreateReminder(args: any): Promise<CallToolResult> {
       content: [
         {
           type: "text",
-          text: `Successfully created reminder: ${args.title}${args.note ? ' with notes' : ''}`,
+          text: `Successfully created reminder: ${args.title}${finalNote ? ' with notes' : ''}`,
         },
       ],
       isError: false,
@@ -89,49 +90,54 @@ export async function handleCreateReminder(args: any): Promise<CallToolResult> {
  */
 export async function handleUpdateReminder(args: any): Promise<CallToolResult> {
   try {
+    // Prepare note content by combining note and URL if provided
+    let finalNote = args.note;
+    if (args.url) {
+      if (finalNote !== undefined) {
+        finalNote = `${finalNote}\n\nURL: ${args.url}`;
+      } else {
+        // We'll handle this differently - append to existing body
+        finalNote = undefined;
+      }
+    }
+
     // Build the script body
     let scriptBody = '';
     
     // Find the reminder by title
     if (args.list) {
-      scriptBody += `set targetList to list "${args.list}"\n`;
-      scriptBody += `set targetReminders to reminders of targetList whose name is "${args.title}"\n`;
+      scriptBody += `set targetList to list ${quoteAppleScriptString(args.list)}\n`;
+      scriptBody += `set targetReminders to reminders of targetList whose name is ${quoteAppleScriptString(args.title)}\n`;
     } else {
-      scriptBody += `set targetReminders to every reminder whose name is "${args.title}"\n`;
+      scriptBody += `set targetReminders to every reminder whose name is ${quoteAppleScriptString(args.title)}\n`;
     }
     
     scriptBody += `if (count of targetReminders) is 0 then\n`;
-    scriptBody += `  error "Reminder not found: ${args.title}"\n`;
+    scriptBody += `  error ${quoteAppleScriptString(`Reminder not found: ${args.title}`)}\n`;
     scriptBody += `else\n`;
     scriptBody += `  set targetReminder to first item of targetReminders\n`;
     
     // Update properties
     if (args.newTitle) {
-      scriptBody += `  set name of targetReminder to "${args.newTitle}"\n`;
+      scriptBody += `  set name of targetReminder to ${quoteAppleScriptString(args.newTitle)}\n`;
     }
     
     if (args.dueDate) {
       const parsedDate = parseDate(args.dueDate);
-      scriptBody += `  set due date of targetReminder to date "${parsedDate}"\n`;
+      scriptBody += `  set due date of targetReminder to date ${quoteAppleScriptString(parsedDate)}\n`;
     }
     
-    if (args.note !== undefined) {
-      scriptBody += `  set body of targetReminder to "${args.note}"\n`;
+    if (finalNote !== undefined) {
+      scriptBody += `  set body of targetReminder to ${quoteAppleScriptString(finalNote)}\n`;
+    } else if (args.url && args.note === undefined) {
+      // Special case: append URL to existing body
+      scriptBody += `  set currentBody to body of targetReminder\n`;
+      scriptBody += `  if currentBody is missing value then set currentBody to ""\n`;
+      scriptBody += `  set body of targetReminder to currentBody & ${quoteAppleScriptString(`\n\nURL: ${args.url}`)}\n`;
     }
     
     if (args.completed !== undefined) {
       scriptBody += `  set completed of targetReminder to ${args.completed}\n`;
-    }
-    
-    if (args.url) {
-      // Append URL to notes
-      if (args.note !== undefined) {
-        scriptBody += `  set body of targetReminder to "${args.note}\\n\\nURL: ${args.url}"\n`;
-      } else {
-        scriptBody += `  set currentBody to body of targetReminder\n`;
-        scriptBody += `  if currentBody is missing value then set currentBody to ""\n`;
-        scriptBody += `  set body of targetReminder to currentBody & "\\n\\nURL: ${args.url}"\n`;
-      }
     }
     
     scriptBody += `end if\n`;
@@ -144,7 +150,7 @@ export async function handleUpdateReminder(args: any): Promise<CallToolResult> {
     const updates = [];
     if (args.newTitle) updates.push(`title to "${args.newTitle}"`);
     if (args.dueDate) updates.push(`due date`);
-    if (args.note !== undefined) updates.push(`notes`);
+    if (args.note !== undefined || args.url) updates.push(`notes`);
     if (args.completed !== undefined) updates.push(`completed to ${args.completed}`);
 
     return {
@@ -180,14 +186,14 @@ export async function handleDeleteReminder(args: any): Promise<CallToolResult> {
     
     // Find the reminder by title
     if (args.list) {
-      scriptBody += `set targetList to list "${args.list}"\n`;
-      scriptBody += `set targetReminders to reminders of targetList whose name is "${args.title}"\n`;
+      scriptBody += `set targetList to list ${quoteAppleScriptString(args.list)}\n`;
+      scriptBody += `set targetReminders to reminders of targetList whose name is ${quoteAppleScriptString(args.title)}\n`;
     } else {
-      scriptBody += `set targetReminders to every reminder whose name is "${args.title}"\n`;
+      scriptBody += `set targetReminders to every reminder whose name is ${quoteAppleScriptString(args.title)}\n`;
     }
     
     scriptBody += `if (count of targetReminders) is 0 then\n`;
-    scriptBody += `  error "Reminder not found: ${args.title}"\n`;
+    scriptBody += `  error ${quoteAppleScriptString(`Reminder not found: ${args.title}`)}\n`;
     scriptBody += `else\n`;
     scriptBody += `  delete first item of targetReminders\n`;
     scriptBody += `end if\n`;
@@ -228,12 +234,12 @@ export async function handleMoveReminder(args: any): Promise<CallToolResult> {
     let scriptBody = '';
     
     // Find the reminder in the source list
-    scriptBody += `set sourceList to list "${args.fromList}"\n`;
-    scriptBody += `set destList to list "${args.toList}"\n`;
-    scriptBody += `set targetReminders to reminders of sourceList whose name is "${args.title}"\n`;
+    scriptBody += `set sourceList to list ${quoteAppleScriptString(args.fromList)}\n`;
+    scriptBody += `set destList to list ${quoteAppleScriptString(args.toList)}\n`;
+    scriptBody += `set targetReminders to reminders of sourceList whose name is ${quoteAppleScriptString(args.title)}\n`;
     
     scriptBody += `if (count of targetReminders) is 0 then\n`;
-    scriptBody += `  error "Reminder not found in list ${args.fromList}: ${args.title}"\n`;
+    scriptBody += `  error ${quoteAppleScriptString(`Reminder not found in list ${args.fromList}: ${args.title}`)}\n`;
     scriptBody += `else\n`;
     scriptBody += `  set targetReminder to first item of targetReminders\n`;
     scriptBody += `  move targetReminder to destList\n`;
