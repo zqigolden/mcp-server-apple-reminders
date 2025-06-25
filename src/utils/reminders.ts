@@ -6,14 +6,9 @@ import type { Reminder, ReminderList } from '../types/index.js';
 import { logger } from './logger.js';
 
 function getModulePaths() {
-  try {
-    const metaUrl = Function('return import.meta.url')();
-    const __filename = fileURLToPath(metaUrl);
-    const __dirname = path.dirname(__filename);
-    return { __filename, __dirname };
-  } catch {
-    return { __filename: '', __dirname: '' };
-  }
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  return { __filename, __dirname };
 }
 
 /**
@@ -29,8 +24,13 @@ export class RemindersManager {
       return;
     }
 
+    this.binaryPath = this.findBinaryPath();
+    this.validateBinary();
+  }
+
+  private findBinaryPath(): string {
     // 自动向上查找包含 package.json 的目录作为项目根目录
-    const __filename = fileURLToPath(import.meta.url);
+    const { __filename, __dirname } = getModulePaths();
     let projectRoot = path.dirname(__filename);
     const pathToPkg = 'package.json';
     const maxDepth = 10; // 防止死循环
@@ -41,23 +41,62 @@ export class RemindersManager {
       projectRoot = parent;
       depth++;
     }
-    this.binaryPath = path.join(projectRoot, 'dist', 'swift', 'bin', 'GetReminders');
-    
+
+    // Try multiple possible binary locations
+    const possiblePaths = [
+      path.join(projectRoot, 'dist', 'swift', 'bin', 'GetReminders'),
+      path.join(projectRoot, 'src', 'swift', 'bin', 'GetReminders'),
+      path.join(projectRoot, 'swift', 'bin', 'GetReminders'),
+      path.join(__dirname, '..', '..', 'dist', 'swift', 'bin', 'GetReminders'),
+      path.join(__dirname, '..', '..', 'src', 'swift', 'bin', 'GetReminders')
+    ];
+
+    logger.debug(`Searching for Swift binary in the following locations:`);
+    for (const binaryPath of possiblePaths) {
+      logger.debug(`  - ${binaryPath}`);
+      if (fs.existsSync(binaryPath)) {
+        logger.debug(`✅ Found Swift binary at: ${binaryPath}`);
+        return binaryPath;
+      }
+    }
+
+    // If not found, use the default path for better error messaging
+    const defaultPath = path.join(projectRoot, 'dist', 'swift', 'bin', 'GetReminders');
+    logger.debug(`❌ Binary not found in any location, using default: ${defaultPath}`);
+    return defaultPath;
+  }
+
+  private validateBinary(): void {
     logger.debug(`Binary path resolved to: ${this.binaryPath}`);
     logger.debug(`Running from compiled code: true`);
     
     // Check if the binary exists and is executable
     if (!fs.existsSync(this.binaryPath)) {
       logger.error(`Swift binary not found at ${this.binaryPath}`);
-      throw new Error('Swift binary not found. Please run the build script first.');
+      throw new Error(`Swift binary not found. Please run the build script first:
+        
+  npm run build:swift
+  
+Or build the complete project:
+  
+  npm run build
+
+Binary should be located at: ${this.binaryPath}`);
     }
     
     // Ensure the binary is executable
     try {
       fs.accessSync(this.binaryPath, fs.constants.X_OK);
+      logger.debug(`✅ Binary is executable`);
     } catch (error) {
       logger.error(`Swift binary is not executable: ${error}`);
-      throw new Error('Swift binary is not executable. Please check permissions.');
+      throw new Error(`Swift binary is not executable. Please check permissions:
+        
+  chmod +x "${this.binaryPath}"
+  
+Or rebuild the binary:
+  
+  npm run build:swift`);
     }
   }
   
