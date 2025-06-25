@@ -93,8 +93,11 @@ export async function handleUpdateReminder(args: any): Promise<CallToolResult> {
     // Prepare note content by combining note and URL if provided
     let finalNote = args.note;
     if (args.url) {
-      if (finalNote !== undefined) {
+      if (finalNote) {
         finalNote = `${finalNote}\n\nURL: ${args.url}`;
+      } else if (finalNote !== undefined) {
+        // If note is defined but falsy (e.g., empty string), set it to just the URL
+        finalNote = `URL: ${args.url}`;
       } else {
         // We'll handle this differently - append to existing body
         finalNote = undefined;

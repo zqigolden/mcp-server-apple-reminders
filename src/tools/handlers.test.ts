@@ -465,6 +465,27 @@ describe('handleUpdateReminder', () => {
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toContain('Successfully updated reminder "Research Task": notes');
   });
+
+  test('should update reminder with empty note and URL without leading newlines', async () => {
+    const args = { 
+      title: 'Test Task',
+      note: '',  // Empty string
+      url: 'https://example.com'
+    };
+
+    const result = await handleUpdateReminder(args);
+
+    expect(result.isError).toBe(false);
+    expect(result.content[0].text).toContain('Successfully updated reminder "Test Task": notes');
+    
+    // Verify that mockExecuteAppleScript was called with the correct script
+    expect(mockExecuteAppleScript).toHaveBeenCalled();
+    const calledScript = mockExecuteAppleScript.mock.calls[0][0];
+    
+    // The script should contain just "URL: https://example.com" without leading newlines
+    expect(calledScript).toContain('"URL: https://example.com"');
+    expect(calledScript).not.toContain('"\n\nURL: https://example.com"');
+  });
 });
 
 describe('handleDeleteReminder', () => {
