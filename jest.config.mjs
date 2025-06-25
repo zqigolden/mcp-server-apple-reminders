@@ -12,8 +12,9 @@ export default {
       {
         useESM: true,
         tsconfig: {
-          module: 'nodenext',
-          target: 'ES2022'
+          module: 'ES2022',
+          target: 'ES2022',
+          moduleResolution: 'node'
         }
       },
     ],
@@ -27,6 +28,7 @@ export default {
     '/dist/',
     '<rootDir>/dist/'
   ],
+  modulePathIgnorePatterns: ['<rootDir>/dist/'],
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.test.ts',

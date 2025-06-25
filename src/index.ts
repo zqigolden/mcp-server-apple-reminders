@@ -10,19 +10,6 @@ import { readFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
-function getModulePaths() {
-  try {
-    const metaUrl = Function('return import.meta.url')();
-    const __filename = fileURLToPath(metaUrl);
-    const __dirname = dirname(__filename);
-    return { __filename, __dirname };
-  } catch {
-    return { __filename: '', __dirname: '' };
-  }
-}
-
-const { __dirname } = getModulePaths();
-
 // 自动向上查找包含 package.json 的目录
 const __filename = fileURLToPath(import.meta.url);
 let projectRoot = dirname(__filename);
