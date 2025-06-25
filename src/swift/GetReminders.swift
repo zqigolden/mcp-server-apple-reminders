@@ -85,6 +85,10 @@ class RemindersManager {
             print("Notes: \(notes)")
         }
         
+        if let url = reminder.url {
+            print("URL: \(url.absoluteString)")
+        }
+        
         if let calendar = reminder.calendar {
             print("List: \(calendar.title)")
         }
