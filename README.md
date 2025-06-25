@@ -121,12 +121,6 @@ Add a reminder to "Call mom" with a note "Ask about weekend plans".
 Create a reminder in my "Work" list to "Submit report" due next Friday.
 ```
 
-### Create Reminders
-```
-Create a reminder to "Buy groceries" for tomorrow at 5 PM.
-Add a reminder to "Call mom" with a note "Ask about weekend plans".
-Create a reminder in my "Work" list to "Submit report" due next Friday.
-```
 
 ### Update Reminders
 ```
@@ -239,6 +233,49 @@ Example response:
 }
 ```
 
+### Delete Reminder
+
+`delete_reminder(title: string, list?: string)`
+
+Deletes a reminder by title:
+- `title`: Title of the reminder to delete (required)
+- `list`: Optional name of the list containing the reminder (recommended for accuracy)
+
+Example response:
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Successfully deleted reminder: Buy groceries"
+    }
+  ],
+  "isError": false
+}
+```
+
+### Move Reminder
+
+`move_reminder(title: string, fromList?: string, toList: string)`
+
+Moves a reminder between lists:
+- `title`: Title of the reminder to move (required)
+- `fromList`: Optional name of the source list
+- `toList`: Name of the destination list (required)
+
+Example response:
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Successfully moved reminder 'Buy groceries' to list 'Shopping'"
+    }
+  ],
+  "isError": false
+}
+```
+
 ### List Reminder Lists
 
 `list_reminder_lists()`
@@ -262,6 +299,14 @@ Example response:
 }
 ```
 
+## License
+
+MIT
+
+## Contributing
+
+Contributions welcome! Please read the contributing guidelines first.
+
 ## Development
 
 1. Install dependencies:
@@ -269,14 +314,9 @@ Example response:
 npm install
 ```
 
-2. Build the Swift binary for Apple Reminders integration:
+2. Build the project (TypeScript and Swift binary):
 ```bash
-npm run build:swift
-```
-
-3. Build the TypeScript code:
-```bash
-npm run build:ts
+npm run build
 ```
 
 ### Project Structure
@@ -299,8 +339,8 @@ npm run build:ts
 
 ### Available Scripts
 
-- `npm run build:ts` - Build TypeScript code
-- `npm run build:swift` - Build Swift binary
-- `npm run dev` - Run TypeScript compiler in watch mode
-- `npm run start` - Start the MCP server
-- `npm test` - Run tests
+- `npm run build` - Build TypeScript code and Swift binary (REQUIRED before starting server)
+- `npm run dev` - TypeScript watch mode
+- `npm test` - Run test suite
+- `npm start` - Start MCP server
+- `npm run clean` - Clean build artifacts

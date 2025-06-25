@@ -6,10 +6,13 @@
 
 一个为 macOS 提供原生 Apple Reminders 集成的 Model Context Protocol (MCP) 服务器。该服务器允许你通过标准化接口与 Apple Reminders 进行交互。
 
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/fradser-mcp-server-apple-reminders-badge.png)](https://mseep.ai/app/fradser-mcp-server-apple-reminders)
+
 ## 功能特性
 
 - 列出所有提醒事项和提醒事项列表
 - 创建带有标题和可选详细信息的新提醒事项
+- 更新现有提醒事项（标题、备注、截止日期、完成状态）
 - 将提醒事项标记为完成/未完成
 - 为提醒事项添加备注
 - 为提醒事项设置截止日期
@@ -118,6 +121,14 @@ code %APPDATA%\Claude\claude_desktop_config.json
 在"工作"列表中创建一个下周五到期的"提交报告"提醒。
 ```
 
+### 更新提醒事项
+```
+将"买杂货"提醒的标题更新为"买有机杂货"。
+将"打电话给妈妈"提醒更新为今天下午 6 点到期。
+更新"提交报告"提醒并将其标记为已完成。
+将"买杂货"的备注更改为"别忘了牛奶和鸡蛋"。
+```
+
 ### 管理提醒事项
 ```
 显示我的所有提醒事项。
@@ -143,13 +154,14 @@ code %APPDATA%\Claude\claude_desktop_config.json
 
 ### 创建提醒事项
 
-`create_reminder(title: string, dueDate?: string, list?: string, note?: string)`
+`create_reminder(title: string, dueDate?: string, list?: string, note?: string, url?: string)`
 
 创建具有指定标题和可选参数的新提醒事项：
 - `title`：提醒事项标题（必需）
 - `dueDate`：可选的截止日期，格式为 'YYYY-MM-DD HH:mm:ss'（例如：'2025-03-12 10:00:00'）
 - `list`：可选的提醒事项列表名称
 - `note`：可选的备注文本
+- `url`：可选的 URL 链接
 
 示例响应：
 ```json
@@ -164,13 +176,41 @@ code %APPDATA%\Claude\claude_desktop_config.json
 }
 ```
 
+### 更新提醒事项
+
+`update_reminder(title: string, newTitle?: string, dueDate?: string, note?: string, completed?: boolean, list?: string, url?: string)`
+
+通过标题更新现有提醒事项。注意：如果多个提醒事项具有相同标题，只会更新找到的第一个。
+- `title`：要更新的提醒事项的当前标题（必需）
+- `newTitle`：提醒事项的新标题（可选）
+- `dueDate`：新的截止日期，格式为 'YYYY-MM-DD HH:mm:ss'（可选）
+- `note`：新的备注文本（可选）
+- `completed`：将提醒事项标记为已完成/未完成（可选）
+- `list`：包含提醒事项的列表名称（建议用于准确性）
+- `url`：要附加到提醒事项的新 URL（可选）
+
+示例响应：
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Successfully updated reminder \"Buy groceries\": title to \"Buy organic groceries\", notes"
+    }
+  ],
+  "isError": false
+}
+```
+
 ### 列出提醒事项
 
-`list_reminders(list?: string, showCompleted?: boolean)`
+`list_reminders(list?: string, showCompleted?: boolean, search?: string, dueWithin?: string)`
 
 列出所有提醒事项或特定列表中的提醒事项：
 - `list`：可选的提醒事项列表名称
 - `showCompleted`：是否显示已完成的提醒事项（默认：false）
+- `search`：搜索标题或备注中包含此文本的提醒事项
+- `dueWithin`：按截止日期范围筛选（"today"、"tomorrow"、"this-week"、"overdue"、"no-date"）
 
 示例响应：
 ```json
@@ -224,12 +264,7 @@ npm install
 
 2. 构建用于 Apple Reminders 集成的 Swift 二进制文件：
 ```bash
-npm run build:swift
-```
-
-3. 构建 TypeScript 代码：
-```bash
-npm run build:ts
+npm run build
 ```
 
 ### 项目结构
@@ -252,11 +287,11 @@ npm run build:ts
 
 ### 可用脚本
 
-- `npm run build:ts` - 构建 TypeScript 代码
-- `npm run build:swift` - 构建 Swift 二进制文件
-- `npm run dev` - 在监视模式下运行 TypeScript 编译器
-- `npm run start` - 启动 MCP 服务器
-- `npm test` - 运行测试
+- `npm run build` - 构建 TypeScript 代码和 Swift 二进制文件
+- `npm run dev` - TypeScript 监视模式
+- `npm test` - 运行测试套件
+- `npm start` - 启动 MCP 服务器
+- `npm run clean` - 清理构建产物
 
 ## License
 
