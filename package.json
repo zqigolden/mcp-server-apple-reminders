@@ -1,6 +1,6 @@
 {
   "name": "mcp-server-apple-reminders",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "MCP server that provides native integration with Apple Reminders on macOS.",
   "author": "Frad Lee <https://frad.me>",
   "license": "MIT",
@@ -25,6 +25,7 @@
     "mcp-server-apple-reminders": "./dist/index.js"
   },
   "scripts": {
+    "build": "npm run build:swift && npm run build:ts",
     "build:ts": "tsc",
     "build:swift": "src/swift/build.sh && mkdir -p dist/swift/bin && cp -p src/swift/bin/GetReminders dist/swift/bin/GetReminders",
     "dev": "tsc --watch",
