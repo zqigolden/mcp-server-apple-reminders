@@ -14,7 +14,6 @@ npm run dev       # TypeScript watch mode
 npm test          # Run test suite
 npm test -- --watch  # Watch mode testing
 npm start         # Start MCP server
-npm run clean     # Clean build artifacts
 ```
 
 ## Critical Requirements
@@ -24,6 +23,7 @@ npm run clean     # Clean build artifacts
 - Binary: `dist/swift/bin/GetReminders` (EventKit access)
 - Tests mock binary path (`NODE_ENV=test`)
 - Auto-discovery fallbacks: `src/swift/bin/`, `swift/bin/`
+- Requires Xcode Command Line Tools for compilation
 
 ### Architecture
 **MCP Server** (`src/server/`) + **Tools** (`src/tools/`) + **Swift Binary** (`src/swift/`)
@@ -70,6 +70,7 @@ npm run clean     # Clean build artifacts
 - **Tools**: `src/tools/handlers.ts` (tool implementations)
 - **Utils**: `src/utils/` (reminders, AppleScript, date, logger)
 - **Tests**: `src/**/*.test.ts` (Jest + ts-jest)
+- **Swift**: `src/swift/GetReminders.swift` (EventKit integration)
 
 ### Testing Environment
 - **Config**: `jest.config.mjs` (ESM + TypeScript support)
@@ -111,6 +112,11 @@ NODE_ENV=development npm start  # Enhanced logging
 NODE_ENV=test npm test  # Test environment
 ```
 
+### Build System
+- **TypeScript**: ESM modules with `.js` imports (Node16 resolution)
+- **Swift**: Compiles to `dist/swift/bin/GetReminders` with EventKit framework
+- **Package**: Entry point `dist/index.js` with Node.js shebang
+
 ### Architecture Notes
 - **Project Root Discovery**: Auto-detects via package.json search (up to 10 levels)
 - **Binary Management**: Robust path discovery with fallbacks
@@ -123,6 +129,7 @@ NODE_ENV=test npm test  # Test environment
 - Binary MUST exist at `dist/swift/bin/GetReminders` before server start
 - Test environment mocks binary path to avoid compilation dependency
 - EventKit framework linking required: `-framework EventKit -framework Foundation`
+- Multiple path fallbacks for robust deployment
 
 ### AppleScript Security
 - Use heredoc syntax to prevent injection: `cat <<'EOF'...EOF`
@@ -130,11 +137,12 @@ NODE_ENV=test npm test  # Test environment
 - URL handling integrated with notes field, not separate properties
 
 ### MCP Protocol Implementation
-- 6 core tools + 7 advanced prompt templates
+- 6 core tools with comprehensive parameter validation
 - Consistent error response format across all tools
-- Tool parameter validation using dual schema approach
+- Tool parameter validation using dual schema approach (Zod + ArkType)
 
 ### Environment Considerations
 - macOS-only due to EventKit and AppleScript dependencies
 - System permission dialogs will appear on first run
 - 24-hour time preference affects date formatting output
+- Requires EventKit and Automation permissions
