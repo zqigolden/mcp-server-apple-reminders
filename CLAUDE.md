@@ -8,8 +8,11 @@ Apple Reminders MCP server - Native macOS integration with dual-strategy archite
 
 ```bash
 npm run build     # REQUIRED before starting server (builds Swift binary)
+npm run build:ts  # Build TypeScript only
+npm run build:swift  # Build Swift binary only
 npm run dev       # TypeScript watch mode
 npm test          # Run test suite
+npm test -- --watch  # Watch mode testing
 npm start         # Start MCP server
 npm run clean     # Clean build artifacts
 ```
@@ -74,6 +77,7 @@ npm run clean     # Clean build artifacts
 - **Mocking**: Swift binary paths when `NODE_ENV=test`
 - **Mock Strategy**: Complete isolation of system calls and binary execution
 - **Coverage**: Unit tests for all utilities, integration tests for tools
+- **Test patterns**: `src/**/*.test.ts` and `src/**/*.spec.ts`
 
 ### Permissions & Requirements
 - **EventKit**: Reading reminders (macOS 10.15+)
@@ -98,8 +102,13 @@ npm test -- --watch  # Watch mode testing
 # Single test file
 npm test src/utils/date.test.ts
 
+# Build individual components
+npm run build:ts    # TypeScript compilation only
+npm run build:swift # Swift binary compilation only
+
 # Debugging
 NODE_ENV=development npm start  # Enhanced logging
+NODE_ENV=test npm test  # Test environment
 ```
 
 ### Architecture Notes

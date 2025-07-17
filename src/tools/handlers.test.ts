@@ -482,9 +482,9 @@ describe('handleUpdateReminder', () => {
     expect(mockExecuteAppleScript).toHaveBeenCalled();
     const calledScript = mockExecuteAppleScript.mock.calls[0][0];
     
-    // The script should contain just "URL: https://example.com" without leading newlines
-    expect(calledScript).toContain('"URL: https://example.com"');
-    expect(calledScript).not.toContain('"\n\nURL: https://example.com"');
+    // The script should contain just "https://example.com" without leading newlines
+    expect(calledScript).toContain('"https://example.com"');
+    expect(calledScript).not.toContain('"\n\nhttps://example.com"');
   });
 });
 
