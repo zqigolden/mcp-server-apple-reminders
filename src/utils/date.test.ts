@@ -80,7 +80,11 @@ describe('Date Parser Tests (12-hour system)', () => {
     mockMomentInstance.isValid.mockReturnValue(false);
     const { parseDate } = await import('./date.js');
     const input = 'invalid-date';
-    expect(() => parseDate(input)).toThrow('Invalid date format: invalid-date');
+    expect(() => parseDate(input)).toThrow(
+      'Invalid or unsupported date format: "invalid-date". ' +
+      'Supported formats: YYYY-MM-DD HH:mm:ss, YYYY-MM-DD, ISO 8601. ' +
+      'Example: "2024-12-25 14:30:00"'
+    );
     expect(mockMomentInstance.format).not.toHaveBeenCalled();
   });
 
@@ -88,7 +92,11 @@ describe('Date Parser Tests (12-hour system)', () => {
     mockMomentInstance.isValid.mockReturnValue(false);
     const { parseDate } = await import('./date.js');
     const input = '';
-    expect(() => parseDate(input)).toThrow('Invalid date format: ');
+    expect(() => parseDate(input)).toThrow(
+      'Invalid or unsupported date format: "". ' +
+      'Supported formats: YYYY-MM-DD HH:mm:ss, YYYY-MM-DD, ISO 8601. ' +
+      'Example: "2024-12-25 14:30:00"'
+    );
   });
 
   test('should use strict parsing', async () => {
@@ -121,18 +129,25 @@ describe('Date Parser Tests (12-hour system)', () => {
     expect(result).toBe('March 15, 2024 10:00:00 AM');
   });
 
-  test('should handle edge case dates', async () => {
+  test('should handle leap year date correctly', async () => {
+    mockMomentInstance.format.mockReturnValue('February 29, 2024 12:00:00 PM');
     const { parseDate } = await import('./date.js');
-    const testCases = [
-      { input: '2024-02-29 12:00:00', output: 'February 29, 2024 12:00:00 PM' },
-      { input: '2024-12-31 23:59:59', output: 'December 31, 2024 11:59:59 PM' },
-      { input: '2024-01-01 00:00:00', output: 'January 1, 2024 12:00:00 AM' }
-    ];
-    testCases.forEach(({ input, output }) => {
-      mockMomentInstance.format.mockReturnValue(output);
-      const result = parseDate(input);
-      expect(result).toBe(output);
-    });
+    const result = parseDate('2024-02-29 12:00:00');
+    expect(result).toBe('February 29, 2024 12:00:00 PM');
+  });
+
+  test('should handle end of year date correctly', async () => {
+    mockMomentInstance.format.mockReturnValue('December 31, 2024 11:59:59 PM');
+    const { parseDate } = await import('./date.js');
+    const result = parseDate('2024-12-31 23:59:59');
+    expect(result).toBe('December 31, 2024 11:59:59 PM');
+  });
+
+  test('should handle start of year date correctly', async () => {
+    mockMomentInstance.format.mockReturnValue('January 1, 2024 12:00:00 AM');
+    const { parseDate } = await import('./date.js');
+    const result = parseDate('2024-01-01 00:00:00');
+    expect(result).toBe('January 1, 2024 12:00:00 AM');
   });
 
   test('should handle moment parsing error', async () => {
@@ -141,7 +156,11 @@ describe('Date Parser Tests (12-hour system)', () => {
       throw new Error('Moment parsing failed');
     }) as any);
     const { parseDate } = await import('./date.js');
-    expect(() => parseDate(input)).toThrow('Invalid date format: invalid-date');
+    expect(() => parseDate(input)).toThrow(
+      'Invalid or unsupported date format: "invalid-date". ' +
+      'Supported formats: YYYY-MM-DD HH:mm:ss, YYYY-MM-DD, ISO 8601. ' +
+      'Example: "2024-12-25 14:30:00"'
+    );
   });
 });
 

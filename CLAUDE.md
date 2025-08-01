@@ -53,9 +53,10 @@ npm start         # Start MCP server
 
 ### Date Handling (Moment.js)
 - **Input formats**: ISO_8601, 'YYYY-MM-DD', 'MM/DD/YYYY', 'YYYY-MM-DD HH:mm:ss'
-- **AppleScript output**: "D MMMM YYYY HH:mm:ss" (English month names)
-- **System integration**: Auto-detects 24-hour vs 12-hour time preference
-- **Caching**: System preferences cached for performance
+- **AppleScript output**: "MMMM D, YYYY HH:mm:ss" (English month names, locale-independent)
+- **System integration**: Auto-detects 24-hour vs 12-hour time preference with caching
+- **Error handling**: Detailed error messages with format examples and supported types
+- **Caching**: System preferences cached for performance, with test-only cache clearing
 
 ### Error Handling
 - **JSON responses**: `{isError: boolean, message: string, data?: any}`

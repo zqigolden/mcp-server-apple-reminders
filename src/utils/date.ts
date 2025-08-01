@@ -10,10 +10,18 @@ import { execSync } from "child_process";
 // Cache for the system's 24-hour time preference (macOS specific)
 let use24HourTimeCached: boolean | undefined;
 
+// Date format constants for AppleScript compatibility
+const DATE_FORMAT_12_HOUR = "MMMM D, YYYY h:mm:ss A" as const;
+const DATE_FORMAT_24_HOUR = "MMMM D, YYYY HH:mm:ss" as const;
+
 /**
- * Clears the cached 24-hour time preference (for testing purposes)
+ * Clears the cached 24-hour time preference (for testing purposes only)
+ * @internal This function should only be used in test environments
  */
 export function clearTimePreferenceCache(): void {
+    if (process.env.NODE_ENV !== 'test') {
+        console.warn('clearTimePreferenceCache should only be used in test environments');
+    }
     use24HourTimeCached = undefined;
 }
 
@@ -41,11 +49,17 @@ function determineSystem24HourTime(): boolean {
 
 /**
  * Parses a date string in various formats and returns a formatted date string
- * suitable for AppleScript
+ * suitable for AppleScript with locale-independent English month names
  * 
- * @param dateStr - Date string in standard format or natural language
- * @returns Formatted date string (Month DD, YYYY HH:mm:ss) or (Month DD, YYYY h:mm:ss A) with English month names
- * @throws Error if the date format is invalid
+ * @param dateStr - Date string in standard format (YYYY-MM-DD, YYYY-MM-DD HH:mm:ss, or ISO 8601)
+ * @returns Formatted date string in English locale: "MMMM D, YYYY HH:mm:ss" (24h) or "MMMM D, YYYY h:mm:ss A" (12h)
+ * @throws Error if the date format is invalid or unsupported
+ * 
+ * @example
+ * ```typescript
+ * parseDate('2024-12-25 18:30:00') // Returns: "December 25, 2024 6:30:00 PM" (12h system)
+ * parseDate('2024-12-25 18:30:00') // Returns: "December 25, 2024 18:30:00" (24h system)
+ * ```
  */
 export function parseDate(dateStr: string): string {
   try {
@@ -56,27 +70,32 @@ export function parseDate(dateStr: string): string {
       "YYYY-MM-DD",          // Handle date-only format
     ], true); // Use strict parsing
 
-    // If not valid, throw error
+    // If not valid, throw error with helpful context
     if (!parsedDate.isValid()) {
-      throw new Error(`Invalid or unsupported date format: ${dateStr}. Please use 'YYYY-MM-DD HH:mm:ss'.`);
+      throw new Error(
+        `Invalid or unsupported date format: "${dateStr}". ` +
+        `Supported formats: YYYY-MM-DD HH:mm:ss, YYYY-MM-DD, ISO 8601. ` +
+        `Example: "2024-12-25 14:30:00"`
+      );
     }
 
     // Check if system uses 24-hour time
     const use24Hour = determineSystem24HourTime();
 
-    let formattedDate;
-    if (use24Hour) {
-        // Format as 24-hour time with English month names in AppleScript format
-        formattedDate = parsedDate.locale('en').format("MMMM D, YYYY HH:mm:ss");
-        debugLog("Parsed date (24-hour):", formattedDate);
-    } else {
-        // Format as 12-hour time with AM/PM with English month names in AppleScript format
-        formattedDate = parsedDate.locale('en').format("MMMM D, YYYY h:mm:ss A");
-        debugLog("Parsed date (12-hour):", formattedDate);
-    }
+    // Format with English locale for AppleScript compatibility
+    const englishMoment = parsedDate.locale('en');
+    const formattedDate = use24Hour 
+        ? englishMoment.format(DATE_FORMAT_24_HOUR)
+        : englishMoment.format(DATE_FORMAT_12_HOUR);
+    
+    debugLog(`Parsed date (${use24Hour ? '24' : '12'}-hour):`, formattedDate);
     return formattedDate;
   } catch (error) {
     debugLog("Date parsing error:", error);
-    throw new Error(`Invalid date format: ${dateStr}`);
+    throw new Error(
+      `Invalid or unsupported date format: "${dateStr}". ` +
+      `Supported formats: YYYY-MM-DD HH:mm:ss, YYYY-MM-DD, ISO 8601. ` +
+      `Example: "2024-12-25 14:30:00"`
+    );
   }
 } 
