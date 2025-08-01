@@ -12,16 +12,28 @@ jest.mock('./logger.js', () => ({
 const mockMoment = moment as jest.MockedFunction<typeof moment>;
 const mockExecSync = execSync as jest.MockedFunction<typeof execSync>;
 
+// Create a mock moment instance type
+interface MockMomentInstance {
+  format: jest.MockedFunction<any>;
+  isValid: jest.MockedFunction<() => boolean>;
+  locale: jest.MockedFunction<(locale: string) => MockMomentInstance>;
+}
+
 describe('Date Parser Tests (12-hour system)', () => {
+  let mockMomentInstance: MockMomentInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockExecSync.mockReturnValue(Buffer.from('0'));
-    const realMoment = jest.requireActual('moment').default as typeof moment;
-    const mockMomentInstance = realMoment();
-    Object.defineProperty(mockMomentInstance, 'format', { value: jest.fn().mockReturnValue('March 15, 2024 2:30:00 PM') });
-    Object.defineProperty(mockMomentInstance, 'isValid', { value: jest.fn().mockReturnValue(true) });
-    Object.defineProperty(mockMomentInstance, 'locale', { value: jest.fn().mockReturnThis() });
-    mockMoment.mockReturnValue(mockMomentInstance);
+    
+    // Create mock moment instance
+    mockMomentInstance = {
+      format: jest.fn().mockReturnValue('March 15, 2024 2:30:00 PM'),
+      isValid: jest.fn().mockReturnValue(true),
+      locale: jest.fn().mockReturnThis()
+    } as MockMomentInstance;
+    
+    mockMoment.mockReturnValue(mockMomentInstance as any);
   });
 
   test('should parse ISO 8601 date format', async () => {
@@ -54,16 +66,10 @@ describe('Date Parser Tests (12-hour system)', () => {
     expect(result).toBe('March 15, 2024 2:30:00 PM');
   });
 
-  test('should format output to MMMM D, YYYY h:mm:ss A for 12-hour system', async () => {
+  test('should format output with English locale for 12-hour system', async () => {
+    mockMomentInstance.format.mockReturnValue('December 25, 2024 6:30:00 PM');
     const { parseDate } = await import('./date.js');
     const input = '2024-12-25 18:30:00';
-    const realMoment = jest.requireActual('moment').default as typeof moment;
-    const mockMomentInstance = realMoment();
-    Object.defineProperty(mockMomentInstance, 'format', { value: jest.fn().mockReturnValue('December 25, 2024 6:30:00 PM') });
-    Object.defineProperty(mockMomentInstance, 'isValid', { value: jest.fn().mockReturnValue(true) });
-    Object.defineProperty(mockMomentInstance, 'locale', { value: jest.fn().mockReturnThis() });
-    mockMoment.mockReturnValue(mockMomentInstance);
-    mockExecSync.mockReturnValue(Buffer.from('0'));
     const result = parseDate(input);
     expect(mockMomentInstance.locale).toHaveBeenCalledWith('en');
     expect(mockMomentInstance.format).toHaveBeenCalledWith('MMMM D, YYYY h:mm:ss A');
@@ -71,27 +77,17 @@ describe('Date Parser Tests (12-hour system)', () => {
   });
 
   test('should handle invalid date gracefully', async () => {
+    mockMomentInstance.isValid.mockReturnValue(false);
     const { parseDate } = await import('./date.js');
     const input = 'invalid-date';
-    const realMoment = jest.requireActual('moment').default as typeof moment;
-    const mockMomentInstance = realMoment();
-    Object.defineProperty(mockMomentInstance, 'format', { value: jest.fn() });
-    Object.defineProperty(mockMomentInstance, 'isValid', { value: jest.fn().mockReturnValue(false) });
-    Object.defineProperty(mockMomentInstance, 'locale', { value: jest.fn().mockReturnThis() });
-    mockMoment.mockReturnValue(mockMomentInstance);
     expect(() => parseDate(input)).toThrow('Invalid date format: invalid-date');
     expect(mockMomentInstance.format).not.toHaveBeenCalled();
   });
 
   test('should handle empty string input', async () => {
+    mockMomentInstance.isValid.mockReturnValue(false);
     const { parseDate } = await import('./date.js');
     const input = '';
-    const realMoment = jest.requireActual('moment').default as typeof moment;
-    const mockMomentInstance = realMoment();
-    Object.defineProperty(mockMomentInstance, 'format', { value: jest.fn() });
-    Object.defineProperty(mockMomentInstance, 'isValid', { value: jest.fn().mockReturnValue(false) });
-    Object.defineProperty(mockMomentInstance, 'locale', { value: jest.fn().mockReturnThis() });
-    mockMoment.mockReturnValue(mockMomentInstance);
     expect(() => parseDate(input)).toThrow('Invalid date format: ');
   });
 
@@ -114,23 +110,11 @@ describe('Date Parser Tests (12-hour system)', () => {
     expect(result).toBe('March 15, 2024 2:30:00 PM');
   });
 
-  test('should handle date parsing with system settings', async () => {
-    const { parseDate } = await import('./date.js');
-    const input = '2024-03-15 10:00:00';
-    const result = parseDate(input);
-    expect(result).toBe('March 15, 2024 2:30:00 PM');
-  });
-
   test('should handle system command failure gracefully', async () => {
+    mockExecSync.mockImplementation(() => { throw new Error('Command failed'); });
+    mockMomentInstance.format.mockReturnValue('March 15, 2024 10:00:00 AM');
     const { parseDate } = await import('./date.js');
     const input = '2024-03-15 10:00:00';
-    mockExecSync.mockImplementation(() => { throw new Error('Command failed'); });
-    const realMoment = jest.requireActual('moment').default as typeof moment;
-    const mockMomentInstance = realMoment();
-    Object.defineProperty(mockMomentInstance, 'format', { value: jest.fn().mockReturnValue('March 15, 2024 10:00:00 AM') });
-    Object.defineProperty(mockMomentInstance, 'isValid', { value: jest.fn().mockReturnValue(true) });
-    Object.defineProperty(mockMomentInstance, 'locale', { value: jest.fn().mockReturnThis() });
-    mockMoment.mockReturnValue(mockMomentInstance);
     const result = parseDate(input);
     expect(mockMomentInstance.locale).toHaveBeenCalledWith('en');
     expect(mockMomentInstance.format).toHaveBeenCalledWith('MMMM D, YYYY h:mm:ss A');
@@ -145,40 +129,44 @@ describe('Date Parser Tests (12-hour system)', () => {
       { input: '2024-01-01 00:00:00', output: 'January 1, 2024 12:00:00 AM' }
     ];
     testCases.forEach(({ input, output }) => {
-      const realMoment = jest.requireActual('moment').default as typeof moment;
-      const mockMomentInstance = realMoment();
-      Object.defineProperty(mockMomentInstance, 'format', { value: jest.fn().mockReturnValue(output) });
-      Object.defineProperty(mockMomentInstance, 'isValid', { value: jest.fn().mockReturnValue(true) });
-      Object.defineProperty(mockMomentInstance, 'locale', { value: jest.fn().mockReturnThis() });
-      mockMoment.mockReturnValue(mockMomentInstance);
+      mockMomentInstance.format.mockReturnValue(output);
       const result = parseDate(input);
       expect(result).toBe(output);
     });
   });
 
   test('should handle moment parsing error', async () => {
-    const { parseDate } = await import('./date.js');
     const input = 'invalid-date';
-    mockMoment.mockImplementationOnce(() => { throw new Error('Moment parsing failed'); });
+    mockMoment.mockImplementationOnce((() => {
+      throw new Error('Moment parsing failed');
+    }) as any);
+    const { parseDate } = await import('./date.js');
     expect(() => parseDate(input)).toThrow('Invalid date format: invalid-date');
   });
 });
 
 describe('Date Parser Tests (24-hour system)', () => {
-  beforeEach(() => {
-    jest.resetModules();
+  let mockMomentInstance: MockMomentInstance;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    
+    // Clear the time preference cache to ensure fresh state
+    const { clearTimePreferenceCache } = await import('./date.js');
+    clearTimePreferenceCache();
+    
+    // Create mock moment instance for 24-hour system
+    mockMomentInstance = {
+      format: jest.fn().mockReturnValue('December 25, 2024 18:30:00'),
+      isValid: jest.fn().mockReturnValue(true),
+      locale: jest.fn().mockReturnThis()
+    } as MockMomentInstance;
+    
+    mockMoment.mockReturnValue(mockMomentInstance as any);
+    mockExecSync.mockReturnValue(Buffer.from('1')); // 24-hour system
   });
+
   test('should use 24-hour format when system prefers it', async () => {
-    jest.resetModules();
-    const moment = require('moment');
-    const { execSync } = require('child_process');
-    execSync.mockReturnValue(Buffer.from('1'));
-    const realMoment = jest.requireActual('moment').default as typeof moment;
-    const mockMomentInstance = realMoment();
-    Object.defineProperty(mockMomentInstance, 'format', { value: jest.fn().mockReturnValue('December 25, 2024 18:30:00') });
-    Object.defineProperty(mockMomentInstance, 'isValid', { value: jest.fn().mockReturnValue(true) });
-    Object.defineProperty(mockMomentInstance, 'locale', { value: jest.fn().mockReturnThis() });
-    (moment as jest.MockedFunction<typeof moment>).mockReturnValue(mockMomentInstance);
     const { parseDate } = await import('./date.js');
     const input = '2024-12-25 18:30:00';
     const result = parseDate(input);

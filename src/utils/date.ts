@@ -11,6 +11,13 @@ import { execSync } from "child_process";
 let use24HourTimeCached: boolean | undefined;
 
 /**
+ * Clears the cached 24-hour time preference (for testing purposes)
+ */
+export function clearTimePreferenceCache(): void {
+    use24HourTimeCached = undefined;
+}
+
+/**
  * Determines if the system uses 24-hour time by reading a macOS default setting.
  * Caches the result for subsequent calls. Defaults to 12-hour on error or non-macOS.
  * @returns boolean - true if system uses 24-hour time, false otherwise.
