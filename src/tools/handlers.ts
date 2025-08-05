@@ -21,44 +21,37 @@ import {
 } from "../validation/schemas.js";
 
 /**
- * Combines note and URL into a single note string
- * @param note - Optional note text
- * @param url - Optional URL to append
- * @returns Combined note string or empty string if no content
+ * Utility class for handling note and URL combinations
  */
-function combineNoteAndUrl(note: string | undefined, url: string | undefined): string {
-  if (!note && !url) return "";
-  if (!note) return `URL: ${url}`;
-  if (!url) return note;
-  return `${note}\n\nURL: ${url}`;
-}
+class NoteHandler {
+  /**
+   * Combines note and URL into a single note string
+   */
+  static combine(note?: string, url?: string): string {
+    if (!note && !url) return "";
+    if (!note) return url!;
+    if (!url) return note;
+    return `${note}\n\n${url}`;
+  }
 
-/**
- * Determines how to handle note updates for the update reminder operation
- * @param note - Optional note text (undefined means don't update, empty string means clear)
- * @param url - Optional URL to append
- * @returns Object indicating the update strategy
- */
-function determineNoteUpdateStrategy(note: string | undefined, url: string | undefined): {
-  shouldReplace: boolean;
-  shouldAppendUrl: boolean;
-  finalNote?: string;
-} {
-  if (!url && note === undefined) {
-    return { shouldReplace: false, shouldAppendUrl: false };
+  /**
+   * Determines update strategy for notes
+   */
+  static getUpdateStrategy(note?: string, url?: string) {
+    if (!url && note === undefined) {
+      return { shouldReplace: false, shouldAppendUrl: false };
+    }
+    
+    if (note !== undefined) {
+      return { 
+        shouldReplace: true, 
+        shouldAppendUrl: false, 
+        finalNote: this.combine(note, url) 
+      };
+    }
+    
+    return { shouldReplace: false, shouldAppendUrl: true };
   }
-  
-  if (note !== undefined) {
-    // Note is explicitly provided (even if empty)
-    return { 
-      shouldReplace: true, 
-      shouldAppendUrl: false, 
-      finalNote: combineNoteAndUrl(note, url) 
-    };
-  }
-  
-  // Only URL provided, append to existing note
-  return { shouldReplace: false, shouldAppendUrl: true };
 }
 
 /**
@@ -66,6 +59,7 @@ function determineNoteUpdateStrategy(note: string | undefined, url: string | und
  * @param args - Arguments for creating a reminder
  * @returns Result of the operation
  */
+
 export async function handleCreateReminder(args: any): Promise<CallToolResult> {
   try {
     // Validate input for security
@@ -127,28 +121,7 @@ export async function handleCreateReminder(args: any): Promise<CallToolResult> {
       isError: false,
     };
   } catch (error) {
-    // Handle validation errors with sanitized messages
-    if (error instanceof ValidationError) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Input validation failed: ${error.message}`,
-          },
-        ],
-        isError: true,
-      };
-    }
-    
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Failed to create reminder: System error occurred`,
-        },
-      ],
-      isError: true,
-    };
+    return ErrorHandler.createErrorResponse('create reminder', error);
   }
 }
 
@@ -176,7 +149,7 @@ export async function handleUpdateReminder(args: any): Promise<CallToolResult> {
     return updateBuilder.createSuccessResponse();
     
   } catch (error) {
-    return handleToolError(error);
+    return ErrorHandler.createErrorResponse("update reminder", error);
   }
 }
 
@@ -295,30 +268,26 @@ class ReminderUpdateBuilder {
 }
 
 /**
- * Centralized error handling for tool operations
+ * Centralized error handling for all tool operations
  */
-function handleToolError(error: any): CallToolResult {
-  if (error instanceof ValidationError) {
+class ErrorHandler {
+  static createErrorResponse(operation: string, error: any): CallToolResult {
+    const message = error instanceof ValidationError 
+      ? `Input validation failed: ${error.message}`
+      : `Failed to ${operation}: System error occurred`;
+    
     return {
-      content: [
-        {
-          type: "text",
-          text: `Input validation failed: ${error.message}`,
-        },
-      ],
+      content: [{ type: "text", text: message }],
       isError: true,
     };
   }
-  
-  return {
-    content: [
-      {
-        type: "text",
-        text: `Failed to update reminder: System error occurred`,
-      },
-    ],
-    isError: true,
-  };
+
+  static createSuccessResponse(message: string): CallToolResult {
+    return {
+      content: [{ type: "text", text: message }],
+      isError: false,
+    };
+  }
 }
 
 /**
@@ -477,7 +446,6 @@ async function handleBatchOrganization(batchOperation: any): Promise<CallToolRes
         }
       }
     }
->>>>>>> refactor/code-simplification
 
     return {
       content: [
