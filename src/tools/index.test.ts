@@ -87,7 +87,7 @@ describe('Tools Index', () => {
 
       const result = await handleToolCall('list_reminder_lists', {});
 
-      expect(mockHandleListReminderLists).toHaveBeenCalledWith();
+      expect(mockHandleListReminderLists).toHaveBeenCalledWith({});
       expect(result).toEqual(expectedResult);
     });
 

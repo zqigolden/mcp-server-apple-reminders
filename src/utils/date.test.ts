@@ -1,6 +1,7 @@
 import { describe, expect, test, beforeEach, jest } from '@jest/globals';
 import moment from 'moment';
-import { execSync } from 'child_process';
+import { spawn } from 'child_process';
+import { EventEmitter } from 'events';
 
 // Mock dependencies
 jest.mock('moment');
@@ -10,13 +11,28 @@ jest.mock('./logger.js', () => ({
 }));
 
 const mockMoment = moment as jest.MockedFunction<typeof moment>;
-const mockExecSync = execSync as jest.MockedFunction<typeof execSync>;
+const mockSpawn = spawn as jest.MockedFunction<typeof spawn>;
 
 // Create a mock moment instance type
 interface MockMomentInstance {
   format: jest.MockedFunction<any>;
   isValid: jest.MockedFunction<() => boolean>;
   locale: jest.MockedFunction<(locale: string) => MockMomentInstance>;
+}
+
+// Helper to create mock spawn process
+function createMockSpawnProcess(returnValue: string) {
+  const mockProcess = new EventEmitter() as any;
+  mockProcess.stdout = new EventEmitter();
+  mockProcess.stderr = new EventEmitter();
+  
+  // Simulate async process completion
+  setTimeout(() => {
+    mockProcess.stdout.emit('data', Buffer.from(returnValue));
+    mockProcess.emit('close', 0);
+  }, 0);
+  
+  return mockProcess;
 }
 
 describe('isDateOnlyFormat utility function', () => {
@@ -46,7 +62,9 @@ describe('Date Parser Tests (12-hour system)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockExecSync.mockReturnValue(Buffer.from('0'));
+    
+    // Mock spawn to return '0' for 12-hour system
+    mockSpawn.mockReturnValue(createMockSpawnProcess('0'));
     
     // Create mock moment instance
     mockMomentInstance = {
@@ -145,7 +163,15 @@ describe('Date Parser Tests (12-hour system)', () => {
   });
 
   test('should handle system command failure gracefully', async () => {
-    mockExecSync.mockImplementation(() => { throw new Error('Command failed'); });
+    // Mock spawn to simulate command failure
+    const failedProcess = new EventEmitter() as any;
+    failedProcess.stdout = new EventEmitter();
+    failedProcess.stderr = new EventEmitter();
+    setTimeout(() => {
+      failedProcess.stderr.emit('data', Buffer.from('Command failed'));
+      failedProcess.emit('close', 1);
+    }, 0);
+    mockSpawn.mockReturnValue(failedProcess);
     mockMomentInstance.format.mockReturnValue('March 15, 2024 10:00:00 AM');
     const { parseDate } = await import('./date.js');
     const input = '2024-03-15 10:00:00';
@@ -196,6 +222,9 @@ describe('Date Parser Tests (24-hour system)', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     
+    // Mock spawn to return '1' for 24-hour system
+    mockSpawn.mockReturnValue(createMockSpawnProcess('1'));
+    
     // Clear the time preference cache to ensure fresh state
     const { clearTimePreferenceCache } = await import('./date.js');
     clearTimePreferenceCache();
@@ -208,12 +237,23 @@ describe('Date Parser Tests (24-hour system)', () => {
     } as MockMomentInstance;
     
     mockMoment.mockReturnValue(mockMomentInstance as any);
-    mockExecSync.mockReturnValue(Buffer.from('1')); // 24-hour system
   });
 
   test('should use 24-hour format when system prefers it', async () => {
     const { parseDate } = await import('./date.js');
     const input = '2024-12-25 18:30:00';
+    
+    // First call will use default (12-hour), but trigger async update
+    parseDate(input);
+    
+    // Wait for async system determination to complete
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    // Clear mock calls from first invocation
+    jest.clearAllMocks();
+    mockMomentInstance.format.mockReturnValue('December 25, 2024 18:30:00');
+    
+    // Second call should use 24-hour format from cache
     const result = parseDate(input);
     expect(mockMomentInstance.locale).toHaveBeenCalledWith('en');
     expect(mockMomentInstance.format).toHaveBeenCalledWith('MMMM D, YYYY HH:mm:ss');
@@ -245,7 +285,6 @@ describe('New Utility Functions', () => {
     } as MockMomentInstance;
     
     mockMoment.mockReturnValue(mockMomentInstance as any);
-    mockExecSync.mockReturnValue(Buffer.from('0')); // 12-hour system
   });
 
   test('parseDateWithType should return both formatted date and type', async () => {
