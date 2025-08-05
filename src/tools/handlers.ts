@@ -118,7 +118,6 @@ export async function handleCreateReminder(args: any): Promise<CallToolResult> {
  */
 export async function handleUpdateReminder(args: any): Promise<CallToolResult> {
   try {
-    // Validate input for security
     const validatedArgs = validateInput(UpdateReminderSchema, args);
     
     // Check if this is a batch operation
@@ -126,106 +125,159 @@ export async function handleUpdateReminder(args: any): Promise<CallToolResult> {
       return handleBatchOrganization(validatedArgs.batchOperation);
     }
 
-    // Regular single reminder update
-    // Prepare note content by combining note and URL if provided
-    let finalNote = validatedArgs.note;
-    if (validatedArgs.url) {
-      if (finalNote) {
-        finalNote = `${finalNote}\n\n${validatedArgs.url}`;
-      } else if (finalNote !== undefined) {
-        // If note is defined but falsy (e.g., empty string), set it to just the URL
-        finalNote = validatedArgs.url;
-      } else {
-        // We'll handle this differently - append to existing body
-        finalNote = undefined;
-      }
-    }
+    // Use builder pattern for cleaner script construction
+    const updateBuilder = new ReminderUpdateBuilder(validatedArgs);
+    const script = updateBuilder.buildScript();
     
-    // Build the script body
-    let scriptBody = '';
-    
-    // Find the reminder by title
-    if (validatedArgs.list) {
-      scriptBody += `set targetList to list ${quoteAppleScriptString(validatedArgs.list)}\n`;
-      scriptBody += `set targetReminders to reminders of targetList whose name is ${quoteAppleScriptString(validatedArgs.title)}\n`;
-    } else {
-      scriptBody += `set targetReminders to every reminder whose name is ${quoteAppleScriptString(validatedArgs.title)}\n`;
-    }
-    
-    scriptBody += `if (count of targetReminders) is 0 then\n`;
-    scriptBody += `  error ${quoteAppleScriptString(`Reminder not found: ${validatedArgs.title}`)}\n`;
-    scriptBody += `else\n`;
-    scriptBody += `  set targetReminder to first item of targetReminders\n`;
-    
-    // Update properties
-    if (validatedArgs.newTitle) {
-      scriptBody += `  set name of targetReminder to ${quoteAppleScriptString(validatedArgs.newTitle)}\n`;
-    }
-    
-    if (validatedArgs.dueDate) {
-      const parsedDate = parseDate(validatedArgs.dueDate);
-      scriptBody += `  set due date of targetReminder to date ${quoteAppleScriptString(parsedDate)}\n`;
-    }
-    
-    if (finalNote !== undefined) {
-      scriptBody += `  set body of targetReminder to ${quoteAppleScriptString(finalNote)}\n`;
-    } else if (validatedArgs.url && validatedArgs.note === undefined) {
-      // Special case: append URL to existing body
-      scriptBody += `  set currentBody to body of targetReminder\n`;
-      scriptBody += `  if currentBody is missing value then set currentBody to ""\n`;
-      scriptBody += `  set body of targetReminder to currentBody & ${quoteAppleScriptString(`\n\n${validatedArgs.url}`)}\n`;
-    }
-    
-    if (validatedArgs.completed !== undefined) {
-      scriptBody += `  set completed of targetReminder to ${validatedArgs.completed}\n`;
-    }
-    
-    scriptBody += `end if\n`;
-    
-    // Execute the script
-    const script = createRemindersScript(scriptBody);
     debugLog("Running AppleScript:", script);
     executeAppleScript(script);
 
-    const updates = [];
-    if (validatedArgs.newTitle) updates.push(`title to "${validatedArgs.newTitle}"`);
-    if (validatedArgs.dueDate) updates.push(`due date`);
-    if (validatedArgs.note !== undefined || validatedArgs.url) updates.push(`notes`);
-    if (validatedArgs.completed !== undefined) updates.push(`completed to ${validatedArgs.completed}`);
+    return updateBuilder.createSuccessResponse();
+    
+  } catch (error) {
+    return handleToolError(error);
+  }
+}
 
+/**
+ * Builder for AppleScript reminder update operations
+ */
+class ReminderUpdateBuilder {
+  constructor(private args: any) {}
+  
+  buildScript(): string {
+    const scriptParts = [
+      this.buildTargetSelector(),
+      this.buildValidationCheck(),
+      this.buildPropertyUpdates(),
+      'end if'
+    ];
+    
+    return createRemindersScript(scriptParts.join('\n'));
+  }
+  
+  private buildTargetSelector(): string {
+    const listSelector = this.args.list 
+      ? `set targetList to list ${quoteAppleScriptString(this.args.list)}\nset targetReminders to reminders of targetList`
+      : 'set targetReminders to every reminder';
+      
+    return `${listSelector} whose name is ${quoteAppleScriptString(this.args.title)}`;
+  }
+  
+  private buildValidationCheck(): string {
+    return [
+      'if (count of targetReminders) is 0 then',
+      `  error ${quoteAppleScriptString(`Reminder not found: ${this.args.title}`)}`,
+      'else',
+      '  set targetReminder to first item of targetReminders'
+    ].join('\n');
+  }
+  
+  private buildPropertyUpdates(): string {
+    const updates: string[] = [];
+    
+    if (this.args.newTitle) {
+      updates.push(`  set name of targetReminder to ${quoteAppleScriptString(this.args.newTitle)}`);
+    }
+    
+    if (this.args.dueDate) {
+      const parsedDate = parseDate(this.args.dueDate);
+      updates.push(`  set due date of targetReminder to date ${quoteAppleScriptString(parsedDate)}`);
+    }
+    
+    if (this.shouldUpdateNotes()) {
+      updates.push(this.buildNotesUpdate());
+    }
+    
+    if (this.args.completed !== undefined) {
+      updates.push(`  set completed of targetReminder to ${this.args.completed}`);
+    }
+    
+    return updates.join('\n');
+  }
+  
+  private shouldUpdateNotes(): boolean {
+    return this.args.note !== undefined || this.args.url !== undefined;
+  }
+  
+  private buildNotesUpdate(): string {
+    const finalNote = this.combineNoteAndUrl();
+    
+    if (finalNote !== undefined) {
+      return `  set body of targetReminder to ${quoteAppleScriptString(finalNote)}`;
+    }
+    
+    // Special case: append URL to existing body
+    if (this.args.url && this.args.note === undefined) {
+      return [
+        '  set currentBody to body of targetReminder',
+        '  if currentBody is missing value then set currentBody to ""',
+        `  set body of targetReminder to currentBody & ${quoteAppleScriptString(`\n\n${this.args.url}`)}`
+      ].join('\n');
+    }
+    
+    return '';
+  }
+  
+  private combineNoteAndUrl(): string | undefined {
+    if (!this.args.url && this.args.note === undefined) return undefined;
+    if (!this.args.url) return this.args.note;
+    if (this.args.note === undefined) return undefined; // Special case for URL append
+    if (!this.args.note) return this.args.url;
+    return `${this.args.note}\n\n${this.args.url}`;
+  }
+  
+  createSuccessResponse(): CallToolResult {
+    const updates = this.getUpdateSummary();
+    
     return {
       content: [
         {
           type: "text",
-          text: `Successfully updated reminder "${validatedArgs.title}"${updates.length > 0 ? `: ${updates.join(', ')}` : ''}`,
+          text: `Successfully updated reminder "${this.args.title}"${updates.length > 0 ? `: ${updates.join(', ')}` : ''}`,
         },
       ],
       isError: false,
     };
-  } catch (error) {
-    // Handle validation errors with sanitized messages
-    if (error instanceof ValidationError) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Input validation failed: ${error.message}`,
-          },
-        ],
-        isError: true,
-      };
-    }
+  }
+  
+  private getUpdateSummary(): string[] {
+    const updates: string[] = [];
     
+    if (this.args.newTitle) updates.push(`title to "${this.args.newTitle}"`);
+    if (this.args.dueDate) updates.push('due date');
+    if (this.shouldUpdateNotes()) updates.push('notes');
+    if (this.args.completed !== undefined) updates.push(`completed to ${this.args.completed}`);
+    
+    return updates;
+  }
+}
+
+/**
+ * Centralized error handling for tool operations
+ */
+function handleToolError(error: any): CallToolResult {
+  if (error instanceof ValidationError) {
     return {
       content: [
         {
           type: "text",
-          text: `Failed to update reminder: System error occurred`,
+          text: `Input validation failed: ${error.message}`,
         },
       ],
       isError: true,
     };
   }
+  
+  return {
+    content: [
+      {
+        type: "text",
+        text: `Failed to update reminder: System error occurred`,
+      },
+    ],
+    isError: true,
+  };
 }
 
 /**

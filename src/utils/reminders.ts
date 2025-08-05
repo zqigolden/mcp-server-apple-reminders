@@ -193,116 +193,11 @@ Or rebuild the binary:
     lists: ReminderList[];
     reminders: Reminder[];
   } {
-    const debugReminderState = (reminder: Partial<Reminder>, stage: string) => {
-      logger.debug(`[${stage}] Reminder "${reminder.title}":
-        - isCompleted: ${reminder.isCompleted}
-        - Type: ${typeof reminder.isCompleted}
-        - Normalized: ${this.normalizeIsCompleted(reminder.isCompleted)}
-        - toString(): ${reminder.isCompleted?.toString()}
-        - JSON: ${JSON.stringify(reminder)}
-      `);
-    };
-
-    const lines = output.split('\n');
-    const lists: ReminderList[] = [];
-    const reminders: Reminder[] = [];
+    logger.debug(`Starting to parse Swift output, ${output.split('\n').length} lines`);
     
-    let parsingLists = false;
-    let parsingReminders = false;
-    let currentReminder: Partial<Reminder> = {};
-    
-    logger.debug(`Starting to parse Swift output, ${lines.length} lines`);
-    
-    for (const line of lines) {
-      // Parse reminder lists section
-      if (line.includes('=== REMINDER LISTS ===')) {
-        parsingLists = true;
-        parsingReminders = false;
-        continue;
-      }
-      
-      // Parse reminders section
-      if (line.includes('=== ALL REMINDERS ===')) {
-        parsingLists = false;
-        parsingReminders = true;
-        continue;
-      }
-      
-      // Parse reminder lists
-      if (parsingLists && line.trim() !== '') {
-        const match = line.match(/^(\d+)\.\s(.+)$/);
-        if (match) {
-          lists.push({
-            id: parseInt(match[1], 10),
-            title: match[2]
-          });
-        }
-      }
-      
-      // Parse reminders
-      if (parsingReminders) {
-        if (line.startsWith('Title:')) {
-          // Start a new reminder
-          if (Object.keys(currentReminder).length > 0 && currentReminder.title && currentReminder.list) {
-            // Only add if we have required fields
-            reminders.push(currentReminder as Reminder);
-          }
-          currentReminder = {
-            title: line.replace('Title:', '').trim(),
-            isCompleted: false, // Default to not completed
-            list: ''
-          };
-        } else if (line.startsWith('Due Date:')) {
-          currentReminder.dueDate = line.replace('Due Date:', '').trim();
-        } else if (line.startsWith('Notes:')) {
-          currentReminder.notes = line.replace('Notes:', '').trim();
-        } else if (line.startsWith('List:')) {
-          currentReminder.list = line.replace('List:', '').trim();
-        } else if (line.startsWith('Status:')) {
-          const status = line.trim();
-          logger.debug(`Processing status line: "${status}" for reminder: ${currentReminder.title}`);
-          
-          // 使用严格的布尔值转换
-          currentReminder.isCompleted = this.normalizeIsCompleted(status === 'Status: Completed');
-          logger.debug(`Normalized isCompleted value: ${currentReminder.isCompleted}`);
-        } else if (line.startsWith('Raw isCompleted value:')) {
-          // 直接使用 Swift 程序提供的原始布尔值
-          const rawValue = line.replace('Raw isCompleted value:', '').trim().toLowerCase();
-          currentReminder.isCompleted = rawValue === 'true';
-          debugReminderState(currentReminder, 'After setting raw value');
-          
-          // 额外检查以确保值类型正确
-          logger.debug(`After setting raw value, isCompleted=${currentReminder.isCompleted}, type=${typeof currentReminder.isCompleted}`);
-        } else if (line === '-------------------' && Object.keys(currentReminder).length > 0) {
-          // End of a reminder - validate required fields
-          if (currentReminder.title && currentReminder.list) {
-            // Ensure isCompleted is strictly a boolean
-            if (typeof currentReminder.isCompleted !== 'boolean') {
-              logger.warn(`Reminder ${currentReminder.title} has non-boolean isCompleted: ${currentReminder.isCompleted} (${typeof currentReminder.isCompleted})`);
-              currentReminder.isCompleted = false;
-            }
-            
-            debugReminderState(currentReminder, 'Before adding to list');
-            reminders.push(currentReminder as Reminder);
-            currentReminder = {};
-          } else {
-            logger.warn('Skipping reminder with missing required fields:', currentReminder);
-          }
-        }
-      }
-    }
-    
-    // Add the last reminder if it exists
-    if (Object.keys(currentReminder).length > 0 && currentReminder.title && currentReminder.list) {
-      // Ensure isCompleted is strictly a boolean for the last reminder too
-      if (typeof currentReminder.isCompleted !== 'boolean') {
-        logger.warn(`Last reminder ${currentReminder.title} has non-boolean isCompleted: ${currentReminder.isCompleted} (${typeof currentReminder.isCompleted})`);
-        currentReminder.isCompleted = false;
-      }
-      
-      logger.debug(`Adding last reminder: ${currentReminder.title}, isCompleted=${currentReminder.isCompleted}`);
-      reminders.push(currentReminder as Reminder);
-    }
+    const sections = this.splitIntoSections(output);
+    const lists = this.parseLists(sections.lists);
+    const reminders = this.parseReminders(sections.reminders);
     
     logger.debug(`Finished parsing: ${lists.length} lists, ${reminders.length} reminders`);
     
@@ -313,6 +208,122 @@ Or rebuild the binary:
         isCompleted: this.normalizeIsCompleted(reminder.isCompleted),
       }))
     };
+  }
+
+  /**
+   * Split output into lists and reminders sections
+   */
+  private splitIntoSections(output: string): { lists: string[]; reminders: string[]; } {
+    const lines = output.split('\n');
+    const sections = { lists: [] as string[], reminders: [] as string[] };
+    let currentSection: 'lists' | 'reminders' | null = null;
+    
+    for (const line of lines) {
+      if (line.includes('=== REMINDER LISTS ===')) {
+        currentSection = 'lists';
+      } else if (line.includes('=== ALL REMINDERS ===')) {
+        currentSection = 'reminders';
+      } else if (currentSection && line.trim()) {
+        sections[currentSection].push(line);
+      }
+    }
+    
+    return sections;
+  }
+
+  /**
+   * Parse reminder lists from lines
+   */
+  private parseLists(lines: string[]): ReminderList[] {
+    return lines
+      .map(line => line.match(/^(\d+)\.\s(.+)$/))
+      .filter((match): match is RegExpMatchArray => match !== null)
+      .map(match => ({ 
+        id: parseInt(match[1], 10), 
+        title: match[2] 
+      }));
+  }
+
+  /**
+   * Parse reminders from lines
+   */
+  private parseReminders(lines: string[]): Reminder[] {
+    const reminderBlocks = this.groupReminderLines(lines);
+    return reminderBlocks
+      .map(block => this.parseReminderBlock(block))
+      .filter((reminder): reminder is Reminder => reminder !== null);
+  }
+
+  /**
+   * Group reminder lines into blocks separated by separators
+   */
+  private groupReminderLines(lines: string[]): string[][] {
+    const blocks: string[][] = [];
+    let currentBlock: string[] = [];
+    
+    for (const line of lines) {
+      if (line === '-------------------') {
+        if (currentBlock.length > 0) {
+          blocks.push(currentBlock);
+          currentBlock = [];
+        }
+      } else {
+        currentBlock.push(line);
+      }
+    }
+    
+    // Add final block if exists
+    if (currentBlock.length > 0) {
+      blocks.push(currentBlock);
+    }
+    
+    return blocks;
+  }
+
+  /**
+   * Parse a single reminder block
+   */
+  private parseReminderBlock(lines: string[]): Reminder | null {
+    const reminder: Partial<Reminder> = { isCompleted: false };
+    
+    const fieldParsers: Record<string, (value: string) => void> = {
+      'Title:': (value) => reminder.title = value.trim(),
+      'Due Date:': (value) => reminder.dueDate = value.trim(),
+      'Notes:': (value) => reminder.notes = value.trim(),
+      'List:': (value) => reminder.list = value.trim(),
+      'Status:': (value) => reminder.isCompleted = value.trim() === 'Status: Completed',
+      'Raw isCompleted value:': (value) => reminder.isCompleted = value.trim().toLowerCase() === 'true'
+    };
+    
+    for (const line of lines) {
+      const parser = Object.entries(fieldParsers)
+        .find(([prefix]) => line.startsWith(prefix));
+      
+      if (parser) {
+        parser[1](line.replace(parser[0], ''));
+      }
+    }
+    
+    return this.validateReminderFields(reminder);
+  }
+
+  /**
+   * Validate reminder has required fields
+   */
+  private validateReminderFields(reminder: Partial<Reminder>): Reminder | null {
+    if (!reminder.title || !reminder.list) {
+      logger.warn('Skipping reminder with missing required fields:', reminder);
+      return null;
+    }
+    
+    // Ensure isCompleted is boolean
+    if (typeof reminder.isCompleted !== 'boolean') {
+      logger.warn(`Reminder ${reminder.title} has non-boolean isCompleted: ${reminder.isCompleted} (${typeof reminder.isCompleted})`);
+      reminder.isCompleted = false;
+    }
+    
+    logger.debug(`Validated reminder: ${reminder.title}, isCompleted=${reminder.isCompleted}`);
+    return reminder as Reminder;
   }
 
 
