@@ -1,0 +1,164 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.6.0] - 2025-08-05
+
+### Added
+
+- Batch operations for organizing multiple reminders with `update_reminder` tool
+- Organization strategies: priority, due date, category, and completion status
+- Dynamic list creation through `list_reminder_lists` tool with `createNew` parameter
+- Flexible filtering for batch operations (completion status, search terms, due dates)
+- Auto-list creation during batch organization operations
+
+### Changed
+
+- Enhanced `update_reminder` tool to support batch mode for organizing multiple reminders
+- Updated `list_reminder_lists` tool to support creating new reminder lists
+- Improved documentation in CLAUDE.md for new batch operation features
+
+### Fixed
+
+- Resolved merge conflicts and build errors after refactor merge
+- Corrected AppleScript date format to use proper English month names (MMMM D, YYYY)
+
+## [0.5.2] - 2025-07-15
+
+### Changed
+
+- Comprehensive date handling optimization and enhancement
+- Optimized date utility test structure and fixed TypeScript issues
+
+### Fixed
+
+- Updated date format for AppleScript compatibility
+- Force English locale for AppleScript compatibility to ensure consistent date parsing
+- Locale-independent date format implementation for Apple Reminders
+
+## [0.5.1] - 2025-07-01
+
+### Added
+
+- Date-only reminder support with locale-independent parsing
+- Enhanced date parsing with improved architecture
+
+### Changed
+
+- Optimized date-only implementation with better error handling
+
+## [0.5.0] - 2025-06-25
+
+### Added
+
+- URL support for reminders with seamless note integration
+- Advanced MCP server features and enhanced functionality
+- Comprehensive documentation updates
+
+### Changed
+
+- Enhanced reminder handling with improved note and URL integration
+- Updated Jest configuration for better ES modules support
+- Removed 'URL:' prefix from reminder notes for cleaner integration
+
+### Fixed
+
+- Improved handling of empty notes with URLs in update reminder functionality
+
+## [0.4.0] - 2025-05-20
+
+### Added
+
+- Update, delete, and move operations for reminders
+- Enhanced filtering capabilities for `list_reminders` tool
+- Comprehensive test coverage for enhanced list functionality
+- MseeP.ai security assessment badge
+
+### Removed
+
+- Priority and recurrence features that weren't implemented
+
+## [0.3.2] - 2025-05-10
+
+### Added
+
+- Caching for system 24-hour time preference detection
+- Support for both 12-hour and 24-hour formats based on system settings
+
+### Changed
+
+- Refactored AM/PM logic using built-in formatting capabilities
+- Enhanced date parsing to dynamically support system time format preferences
+
+## [0.3.1] - 2025-04-30
+
+### Added
+
+- Enhanced project metadata and comprehensive documentation
+
+### Fixed
+
+- Improved date parsing error handling in parseDate function
+
+## [0.3.0] - 2025-04-15
+
+### Added
+
+- Migration to npm package management
+- Updated dependencies for better compatibility
+
+### Changed
+
+- Moved from previous package manager to npm
+- Updated project structure for npm distribution
+
+## [0.2.0] - 2025-03-20
+
+### Added
+
+- Native Swift integration for reminder management using EventKit
+- Enhanced project documentation and structure
+- Improved reminder creation date format specification
+
+### Changed
+
+- Refactored reminder list handling for better performance
+- Updated documentation with comprehensive usage examples
+
+## [0.1.0] - 2025-02-15
+
+### Added
+
+- Enhanced reminder creation and listing with note support
+- Modular code organization into src/ directory structure
+
+### Changed
+
+- Reorganized codebase into proper module structure
+- Improved reminder creation workflow
+
+## [0.0.1] - 2025-01-30
+
+### Added
+
+- Initial project setup for MCP server
+- Basic Apple Reminders integration
+- Foundation for macOS native reminder management
+
+[unreleased]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.5.2...v0.6.0
+[0.5.2]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.5.1...v0.5.2
+[0.5.1]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.3.2...v0.4.0
+[0.3.2]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.0.1...v0.1.0
+[0.0.1]: https://github.com/FradSer/mcp-server-apple-reminders/releases/tag/v0.0.1
