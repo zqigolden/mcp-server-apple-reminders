@@ -11,8 +11,8 @@ import { execSync } from "child_process";
 let use24HourTimeCached: boolean | undefined;
 
 // Date format constants for AppleScript compatibility
-const DATE_FORMAT_12_HOUR = "D MMMM YYYY h:mm:ss A" as const;
-const DATE_FORMAT_24_HOUR = "D MMMM YYYY HH:mm:ss" as const;
+const DATE_FORMAT_12_HOUR = "MMMM D, YYYY h:mm:ss A" as const;
+const DATE_FORMAT_24_HOUR = "MMMM D, YYYY HH:mm:ss" as const;
 
 /**
  * Clears the cached 24-hour time preference (for testing purposes only)
@@ -143,7 +143,7 @@ export function parseDate(dateStr: string): string {
     let formattedDate;
     if (isDateOnly) {
         // For date-only inputs, return just the date without time
-        formattedDate = englishMoment.format("D MMMM YYYY");
+        formattedDate = englishMoment.format("MMMM D, YYYY");
         debugLog("Parsed date (date-only):", formattedDate);
     } else {
         // Check if system uses 24-hour time for datetime inputs
