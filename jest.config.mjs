@@ -14,10 +14,12 @@ export default {
         tsconfig: {
           module: 'ES2022',
           target: 'ES2022',
-          moduleResolution: 'node'
+          moduleResolution: 'Node16',
+          lib: ['ES2022', 'DOM']
         }
       },
     ],
+    '^.+\\.jsx?$': 'babel-jest',
   },
   testMatch: [
     '<rootDir>/src/**/*.test.ts',
@@ -36,5 +38,10 @@ export default {
     '!src/**/*.d.ts',
     '!src/**/__mocks__/**'
   ],
-  setupFilesAfterEnv: ['<rootDir>/src/test-setup.ts']
+  setupFilesAfterEnv: ['<rootDir>/src/test-setup.ts'],
+  globals: {
+    'import.meta': {
+      url: 'file:///'
+    }
+  }
 };
