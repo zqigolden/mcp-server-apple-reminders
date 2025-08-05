@@ -12,11 +12,29 @@ jest.mock('fs');
 jest.mock('path');
 jest.mock('url');
 jest.mock('./logger.js');
+jest.mock('./moduleHelpers.js'); // Mock the module helpers
+jest.mock('./binaryValidator.js', () => ({
+  findSecureBinaryPath: jest.fn(),
+  validateBinarySecurity: jest.fn(),
+  getEnvironmentBinaryConfig: jest.fn(),
+  BinaryValidationError: class extends Error {}
+}));
 
 const mockSpawn = spawn as jest.MockedFunction<typeof spawn>;
 const mockFs = fs as jest.Mocked<typeof fs>;
 const mockPath = path as jest.Mocked<typeof path>;
 const mockFileURLToPath = fileURLToPath as jest.MockedFunction<typeof fileURLToPath>;
+
+// Import the mocked binary validator functions
+import { 
+  findSecureBinaryPath, 
+  validateBinarySecurity, 
+  getEnvironmentBinaryConfig 
+} from './binaryValidator.js';
+
+const mockFindSecureBinaryPath = findSecureBinaryPath as jest.MockedFunction<typeof findSecureBinaryPath>;
+const mockValidateBinarySecurity = validateBinarySecurity as jest.MockedFunction<typeof validateBinarySecurity>;
+const mockGetEnvironmentBinaryConfig = getEnvironmentBinaryConfig as jest.MockedFunction<typeof getEnvironmentBinaryConfig>;
 
 describe('RemindersManager', () => {
   let manager: RemindersManager;
@@ -36,6 +54,18 @@ describe('RemindersManager', () => {
     // Mock fs operations
     mockFs.existsSync.mockReturnValue(true);
     mockFs.accessSync.mockReturnValue(undefined);
+    
+    // Set up default binary validator mocks
+    mockGetEnvironmentBinaryConfig.mockReturnValue({});
+    mockFindSecureBinaryPath.mockReturnValue({
+      path: '/mock/binary/path',
+      validationResult: { isValid: true, errors: [], hash: 'mockhash' }
+    });
+    mockValidateBinarySecurity.mockReturnValue({
+      isValid: true,
+      errors: [],
+      hash: 'mockhash'
+    });
     
     // Mock process events
     mockProcess = {
@@ -69,15 +99,30 @@ describe('RemindersManager', () => {
     });
 
     test('should throw error if binary does not exist', () => {
-      mockFs.existsSync.mockReturnValue(false);
+      // Mock binary not found scenario
+      mockFindSecureBinaryPath.mockReturnValue({
+        path: null,
+        validationResult: { isValid: false, errors: ['FILE_NOT_FOUND: Binary not found'], hash: undefined }
+      });
+      mockValidateBinarySecurity.mockReturnValue({
+        isValid: false,
+        errors: ['FILE_NOT_FOUND: Binary not found'],
+        hash: undefined
+      });
       
       expect(() => new RemindersManager()).toThrow('Swift binary not found');
     });
 
     test('should throw error if binary is not executable', () => {
-      mockFs.existsSync.mockReturnValue(true);
-      mockFs.accessSync.mockImplementation(() => {
-        throw new Error('Permission denied');
+      // Mock binary not executable scenario
+      mockFindSecureBinaryPath.mockReturnValue({
+        path: '/mock/binary/path',
+        validationResult: { isValid: false, errors: ['NOT_EXECUTABLE: Binary is not executable'], hash: undefined }
+      });
+      mockValidateBinarySecurity.mockReturnValue({
+        isValid: false,
+        errors: ['NOT_EXECUTABLE: Binary is not executable'],
+        hash: undefined
       });
       
       expect(() => new RemindersManager()).toThrow('Swift binary is not executable');

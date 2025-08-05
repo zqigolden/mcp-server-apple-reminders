@@ -371,7 +371,7 @@ describe('handleCreateReminder', () => {
     const result = await handleCreateReminder(args);
 
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Failed to create reminder: AppleScript failed');
+    expect(result.content[0].text).toContain('Failed to create reminder: System error occurred');
   });
 
   test('should handle special characters in title safely', async () => {
@@ -451,7 +451,7 @@ describe('handleUpdateReminder', () => {
     const result = await handleUpdateReminder(args);
 
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Failed to update reminder: Reminder not found: Nonexistent');
+    expect(result.content[0].text).toContain('Failed to update reminder: System error occurred');
   });
 
   test('should update reminder with URL', async () => {
@@ -526,7 +526,7 @@ describe('handleDeleteReminder', () => {
     const result = await handleDeleteReminder(args);
 
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Failed to delete reminder: Reminder not found: Nonexistent');
+    expect(result.content[0].text).toContain('Failed to delete reminder: System error occurred');
   });
 
   test('should handle special characters in title safely', async () => {
@@ -574,7 +574,7 @@ describe('handleMoveReminder', () => {
     const result = await handleMoveReminder(args);
 
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Failed to move reminder: Reminder not found in list Nonexistent: Task');
+    expect(result.content[0].text).toContain('Failed to move reminder: System error occurred');
   });
 
   test('should handle special characters in list names', async () => {

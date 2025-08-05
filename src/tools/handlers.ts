@@ -8,6 +8,17 @@ import { createRemindersScript, executeAppleScript, quoteAppleScriptString } fro
 import { parseDate } from "../utils/date.js";
 import { debugLog } from "../utils/logger.js";
 import { remindersManager } from "../utils/reminders.js";
+import { 
+  validateInput, 
+  ValidationError,
+  CreateReminderSchema,
+  ListRemindersSchema,
+  UpdateReminderSchema,
+  DeleteReminderSchema,
+  MoveReminderSchema,
+  ListReminderListsSchema,
+  CreateReminderListSchema
+} from "../validation/schemas.js";
 
 /**
  * Creates a new reminder
@@ -16,13 +27,15 @@ import { remindersManager } from "../utils/reminders.js";
  */
 export async function handleCreateReminder(args: any): Promise<CallToolResult> {
   try {
+    // Validate input for security
+    const validatedArgs = validateInput(CreateReminderSchema, args);
     // Prepare note content by combining note and URL if provided
-    let finalNote = args.note || "";
-    if (args.url) {
+    let finalNote = validatedArgs.note || "";
+    if (validatedArgs.url) {
       if (finalNote) {
-        finalNote = `${finalNote}\n\n${args.url}`;
+        finalNote = `${finalNote}\n\n${validatedArgs.url}`;
       } else {
-        finalNote = args.url;
+        finalNote = validatedArgs.url;
       }
     }
 
@@ -30,18 +43,18 @@ export async function handleCreateReminder(args: any): Promise<CallToolResult> {
     let scriptBody = '';
 
     // If list is specified, target that list
-    if (args.list) {
-      scriptBody += `set targetList to list ${quoteAppleScriptString(args.list)}\n`;
+    if (validatedArgs.list) {
+      scriptBody += `set targetList to list ${quoteAppleScriptString(validatedArgs.list)}\n`;
     } else {
       scriptBody += "set targetList to default list\n";
     }
 
     // Build properties object for the reminder
-    scriptBody += `set reminderProps to {name:${quoteAppleScriptString(args.title)}`;
+    scriptBody += `set reminderProps to {name:${quoteAppleScriptString(validatedArgs.title)}`;
     
     // Add due date if specified
-    if (args.dueDate) {
-      const parsedDate = parseDate(args.dueDate);
+    if (validatedArgs.dueDate) {
+      const parsedDate = parseDate(validatedArgs.dueDate);
       debugLog("Parsed date:", parsedDate);
       scriptBody += `, due date:date ${quoteAppleScriptString(parsedDate)}`;
     }
@@ -61,21 +74,36 @@ export async function handleCreateReminder(args: any): Promise<CallToolResult> {
     debugLog("Running AppleScript:", script);
     executeAppleScript(script);
 
+    const successMessage = `Successfully created reminder: ${validatedArgs.title}${finalNote ? ' with notes' : ''}`;
+    
     return {
       content: [
         {
           type: "text",
-          text: `Successfully created reminder: ${args.title}${finalNote ? ' with notes' : ''}`,
+          text: successMessage,
         },
       ],
       isError: false,
     };
   } catch (error) {
+    // Handle validation errors with sanitized messages
+    if (error instanceof ValidationError) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Input validation failed: ${error.message}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+    
     return {
       content: [
         {
           type: "text",
-          text: `Failed to create reminder: ${(error as Error).message}`,
+          text: `Failed to create reminder: System error occurred`,
         },
       ],
       isError: true,
@@ -84,63 +112,72 @@ export async function handleCreateReminder(args: any): Promise<CallToolResult> {
 }
 
 /**
- * Updates an existing reminder
- * @param args - Arguments for updating a reminder
+ * Updates an existing reminder or performs batch operations
+ * @param args - Arguments for updating a reminder or batch operations
  * @returns Result of the operation
  */
 export async function handleUpdateReminder(args: any): Promise<CallToolResult> {
   try {
+    // Validate input for security
+    const validatedArgs = validateInput(UpdateReminderSchema, args);
+    
+    // Check if this is a batch operation
+    if (validatedArgs.batchOperation?.enabled) {
+      return handleBatchOrganization(validatedArgs.batchOperation);
+    }
+
+    // Regular single reminder update
     // Prepare note content by combining note and URL if provided
-    let finalNote = args.note;
-    if (args.url) {
+    let finalNote = validatedArgs.note;
+    if (validatedArgs.url) {
       if (finalNote) {
-        finalNote = `${finalNote}\n\n${args.url}`;
+        finalNote = `${finalNote}\n\n${validatedArgs.url}`;
       } else if (finalNote !== undefined) {
         // If note is defined but falsy (e.g., empty string), set it to just the URL
-        finalNote = args.url;
+        finalNote = validatedArgs.url;
       } else {
         // We'll handle this differently - append to existing body
         finalNote = undefined;
       }
     }
-
+    
     // Build the script body
     let scriptBody = '';
     
     // Find the reminder by title
-    if (args.list) {
-      scriptBody += `set targetList to list ${quoteAppleScriptString(args.list)}\n`;
-      scriptBody += `set targetReminders to reminders of targetList whose name is ${quoteAppleScriptString(args.title)}\n`;
+    if (validatedArgs.list) {
+      scriptBody += `set targetList to list ${quoteAppleScriptString(validatedArgs.list)}\n`;
+      scriptBody += `set targetReminders to reminders of targetList whose name is ${quoteAppleScriptString(validatedArgs.title)}\n`;
     } else {
-      scriptBody += `set targetReminders to every reminder whose name is ${quoteAppleScriptString(args.title)}\n`;
+      scriptBody += `set targetReminders to every reminder whose name is ${quoteAppleScriptString(validatedArgs.title)}\n`;
     }
     
     scriptBody += `if (count of targetReminders) is 0 then\n`;
-    scriptBody += `  error ${quoteAppleScriptString(`Reminder not found: ${args.title}`)}\n`;
+    scriptBody += `  error ${quoteAppleScriptString(`Reminder not found: ${validatedArgs.title}`)}\n`;
     scriptBody += `else\n`;
     scriptBody += `  set targetReminder to first item of targetReminders\n`;
     
     // Update properties
-    if (args.newTitle) {
-      scriptBody += `  set name of targetReminder to ${quoteAppleScriptString(args.newTitle)}\n`;
+    if (validatedArgs.newTitle) {
+      scriptBody += `  set name of targetReminder to ${quoteAppleScriptString(validatedArgs.newTitle)}\n`;
     }
     
-    if (args.dueDate) {
-      const parsedDate = parseDate(args.dueDate);
+    if (validatedArgs.dueDate) {
+      const parsedDate = parseDate(validatedArgs.dueDate);
       scriptBody += `  set due date of targetReminder to date ${quoteAppleScriptString(parsedDate)}\n`;
     }
     
     if (finalNote !== undefined) {
       scriptBody += `  set body of targetReminder to ${quoteAppleScriptString(finalNote)}\n`;
-    } else if (args.url && args.note === undefined) {
+    } else if (validatedArgs.url && validatedArgs.note === undefined) {
       // Special case: append URL to existing body
       scriptBody += `  set currentBody to body of targetReminder\n`;
       scriptBody += `  if currentBody is missing value then set currentBody to ""\n`;
-      scriptBody += `  set body of targetReminder to currentBody & ${quoteAppleScriptString(`\n\n${args.url}`)}\n`;
+      scriptBody += `  set body of targetReminder to currentBody & ${quoteAppleScriptString(`\n\n${validatedArgs.url}`)}\n`;
     }
     
-    if (args.completed !== undefined) {
-      scriptBody += `  set completed of targetReminder to ${args.completed}\n`;
+    if (validatedArgs.completed !== undefined) {
+      scriptBody += `  set completed of targetReminder to ${validatedArgs.completed}\n`;
     }
     
     scriptBody += `end if\n`;
@@ -151,16 +188,208 @@ export async function handleUpdateReminder(args: any): Promise<CallToolResult> {
     executeAppleScript(script);
 
     const updates = [];
-    if (args.newTitle) updates.push(`title to "${args.newTitle}"`);
-    if (args.dueDate) updates.push(`due date`);
-    if (args.note !== undefined || args.url) updates.push(`notes`);
-    if (args.completed !== undefined) updates.push(`completed to ${args.completed}`);
+    if (validatedArgs.newTitle) updates.push(`title to "${validatedArgs.newTitle}"`);
+    if (validatedArgs.dueDate) updates.push(`due date`);
+    if (validatedArgs.note !== undefined || validatedArgs.url) updates.push(`notes`);
+    if (validatedArgs.completed !== undefined) updates.push(`completed to ${validatedArgs.completed}`);
 
     return {
       content: [
         {
           type: "text",
-          text: `Successfully updated reminder "${args.title}"${updates.length > 0 ? `: ${updates.join(', ')}` : ''}`,
+          text: `Successfully updated reminder "${validatedArgs.title}"${updates.length > 0 ? `: ${updates.join(', ')}` : ''}`,
+        },
+      ],
+      isError: false,
+    };
+  } catch (error) {
+    // Handle validation errors with sanitized messages
+    if (error instanceof ValidationError) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Input validation failed: ${error.message}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+    
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Failed to update reminder: System error occurred`,
+        },
+      ],
+      isError: true,
+    };
+  }
+}
+
+/**
+ * Handles batch organization operations
+ */
+async function handleBatchOrganization(batchOperation: any): Promise<CallToolResult> {
+  try {
+    // Get current reminders to analyze
+    const { reminders } = await remindersManager.getReminders(false);
+    
+    let filteredReminders = reminders;
+    if (batchOperation.sourceList) {
+      filteredReminders = reminders.filter(r => r.list === batchOperation.sourceList);
+    }
+
+    // Apply additional filters if specified
+    if (batchOperation.filter) {
+      if (batchOperation.filter.completed !== undefined) {
+        filteredReminders = filteredReminders.filter(r => r.isCompleted === batchOperation.filter.completed);
+      }
+      
+      if (batchOperation.filter.search) {
+        const searchLower = batchOperation.filter.search.toLowerCase();
+        filteredReminders = filteredReminders.filter(r => 
+          r.title.toLowerCase().includes(searchLower) ||
+          (r.notes && r.notes.toLowerCase().includes(searchLower))
+        );
+      }
+      
+      if (batchOperation.filter.dueWithin) {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const weekEnd = new Date(today);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+        
+        filteredReminders = filteredReminders.filter(r => {
+          if (batchOperation.filter.dueWithin === "no-date") return !r.dueDate;
+          if (!r.dueDate) return false;
+          
+          const dueDate = new Date(r.dueDate);
+          switch (batchOperation.filter.dueWithin) {
+            case "overdue":
+              return dueDate < today;
+            case "today":
+              return dueDate >= today && dueDate < tomorrow;
+            case "tomorrow":
+              return dueDate >= tomorrow && dueDate < new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000);
+            case "this-week":
+              return dueDate >= today && dueDate <= weekEnd;
+            default:
+              return true;
+          }
+        });
+      }
+    }
+
+    const organizationStrategy = batchOperation.strategy || "category";
+    const createLists = batchOperation.createLists !== false;
+    
+    // Group reminders by the organization strategy
+    const groups: Record<string, any[]> = {};
+    
+    for (const reminder of filteredReminders) {
+      let groupKey = "Uncategorized";
+      
+      switch (organizationStrategy) {
+        case "priority":
+          if (reminder.title.toLowerCase().includes("urgent") || reminder.title.toLowerCase().includes("important")) {
+            groupKey = "High Priority";
+          } else if (reminder.title.toLowerCase().includes("later") || reminder.title.toLowerCase().includes("someday")) {
+            groupKey = "Low Priority";
+          } else {
+            groupKey = "Medium Priority";
+          }
+          break;
+        
+        case "due_date":
+          if (!reminder.dueDate) {
+            groupKey = "No Due Date";
+          } else {
+            const dueDate = new Date(reminder.dueDate);
+            const now = new Date();
+            const diffDays = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
+            
+            if (diffDays < 0) {
+              groupKey = "Overdue";
+            } else if (diffDays === 0) {
+              groupKey = "Due Today";
+            } else if (diffDays <= 7) {
+              groupKey = "Due This Week";
+            } else {
+              groupKey = "Due Later";
+            }
+          }
+          break;
+          
+        case "completion_status":
+          groupKey = reminder.isCompleted ? "Completed" : "Active";
+          break;
+          
+        case "category":
+        default:
+          // Extract category from title or notes using common keywords
+          const text = `${reminder.title} ${reminder.notes || ""}`.toLowerCase();
+          if (text.includes("work") || text.includes("meeting") || text.includes("project")) {
+            groupKey = "Work";
+          } else if (text.includes("personal") || text.includes("home") || text.includes("family")) {
+            groupKey = "Personal";
+          } else if (text.includes("shopping") || text.includes("buy") || text.includes("store")) {
+            groupKey = "Shopping";
+          } else if (text.includes("health") || text.includes("doctor") || text.includes("exercise")) {
+            groupKey = "Health";
+          } else if (text.includes("bill") || text.includes("payment") || text.includes("finance")) {
+            groupKey = "Finance";
+          }
+          break;
+      }
+      
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
+      }
+      groups[groupKey].push(reminder);
+    }
+
+    const results = [];
+    
+    // Create lists and move reminders
+    for (const [groupName, groupReminders] of Object.entries(groups)) {
+      if (createLists) {
+        try {
+          // Try to create the list (will fail silently if it already exists)
+          const createResult = await handleCreateReminderList({ name: groupName });
+          if (!createResult.isError) {
+            results.push(`Created list: ${groupName}`);
+          }
+        } catch (error) {
+          // List might already exist, continue
+        }
+      }
+      
+      // Move reminders to the appropriate list
+      for (const reminder of groupReminders) {
+        if (reminder.list !== groupName) {
+          try {
+            await handleMoveReminder({
+              title: reminder.title,
+              fromList: reminder.list,
+              toList: groupName
+            });
+            results.push(`Moved "${reminder.title}" to ${groupName}`);
+          } catch (error) {
+            results.push(`Failed to move "${reminder.title}": ${(error as Error).message}`);
+          }
+        }
+      }
+    }
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Batch organization complete using ${organizationStrategy} strategy:\n${results.join('\n')}`,
         },
       ],
       isError: false,
@@ -170,7 +399,7 @@ export async function handleUpdateReminder(args: any): Promise<CallToolResult> {
       content: [
         {
           type: "text",
-          text: `Failed to update reminder: ${(error as Error).message}`,
+          text: `Failed to organize reminders: ${(error as Error).message}`,
         },
       ],
       isError: true,
@@ -185,18 +414,20 @@ export async function handleUpdateReminder(args: any): Promise<CallToolResult> {
  */
 export async function handleDeleteReminder(args: any): Promise<CallToolResult> {
   try {
+    // Validate input for security
+    const validatedArgs = validateInput(DeleteReminderSchema, args);
     let scriptBody = '';
     
     // Find the reminder by title
-    if (args.list) {
-      scriptBody += `set targetList to list ${quoteAppleScriptString(args.list)}\n`;
-      scriptBody += `set targetReminders to reminders of targetList whose name is ${quoteAppleScriptString(args.title)}\n`;
+    if (validatedArgs.list) {
+      scriptBody += `set targetList to list ${quoteAppleScriptString(validatedArgs.list)}\n`;
+      scriptBody += `set targetReminders to reminders of targetList whose name is ${quoteAppleScriptString(validatedArgs.title)}\n`;
     } else {
-      scriptBody += `set targetReminders to every reminder whose name is ${quoteAppleScriptString(args.title)}\n`;
+      scriptBody += `set targetReminders to every reminder whose name is ${quoteAppleScriptString(validatedArgs.title)}\n`;
     }
     
     scriptBody += `if (count of targetReminders) is 0 then\n`;
-    scriptBody += `  error ${quoteAppleScriptString(`Reminder not found: ${args.title}`)}\n`;
+    scriptBody += `  error ${quoteAppleScriptString(`Reminder not found: ${validatedArgs.title}`)}\n`;
     scriptBody += `else\n`;
     scriptBody += `  delete first item of targetReminders\n`;
     scriptBody += `end if\n`;
@@ -209,17 +440,30 @@ export async function handleDeleteReminder(args: any): Promise<CallToolResult> {
       content: [
         {
           type: "text",
-          text: `Successfully deleted reminder: ${args.title}`,
+          text: `Successfully deleted reminder: ${validatedArgs.title}`,
         },
       ],
       isError: false,
     };
   } catch (error) {
+    // Handle validation errors with sanitized messages
+    if (error instanceof ValidationError) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Input validation failed: ${error.message}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+    
     return {
       content: [
         {
           type: "text",
-          text: `Failed to delete reminder: ${(error as Error).message}`,
+          text: `Failed to delete reminder: System error occurred`,
         },
       ],
       isError: true,
@@ -234,15 +478,17 @@ export async function handleDeleteReminder(args: any): Promise<CallToolResult> {
  */
 export async function handleMoveReminder(args: any): Promise<CallToolResult> {
   try {
+    // Validate input for security
+    const validatedArgs = validateInput(MoveReminderSchema, args);
     let scriptBody = '';
     
     // Find the reminder in the source list
-    scriptBody += `set sourceList to list ${quoteAppleScriptString(args.fromList)}\n`;
-    scriptBody += `set destList to list ${quoteAppleScriptString(args.toList)}\n`;
-    scriptBody += `set targetReminders to reminders of sourceList whose name is ${quoteAppleScriptString(args.title)}\n`;
+    scriptBody += `set sourceList to list ${quoteAppleScriptString(validatedArgs.fromList)}\n`;
+    scriptBody += `set destList to list ${quoteAppleScriptString(validatedArgs.toList)}\n`;
+    scriptBody += `set targetReminders to reminders of sourceList whose name is ${quoteAppleScriptString(validatedArgs.title)}\n`;
     
     scriptBody += `if (count of targetReminders) is 0 then\n`;
-    scriptBody += `  error ${quoteAppleScriptString(`Reminder not found in list ${args.fromList}: ${args.title}`)}\n`;
+    scriptBody += `  error ${quoteAppleScriptString(`Reminder not found in list ${validatedArgs.fromList}: ${validatedArgs.title}`)}\n`;
     scriptBody += `else\n`;
     scriptBody += `  set targetReminder to first item of targetReminders\n`;
     scriptBody += `  move targetReminder to destList\n`;
@@ -256,17 +502,30 @@ export async function handleMoveReminder(args: any): Promise<CallToolResult> {
       content: [
         {
           type: "text",
-          text: `Successfully moved reminder "${args.title}" from ${args.fromList} to ${args.toList}`,
+          text: `Successfully moved reminder "${validatedArgs.title}" from ${validatedArgs.fromList} to ${validatedArgs.toList}`,
         },
       ],
       isError: false,
     };
   } catch (error) {
+    // Handle validation errors with sanitized messages
+    if (error instanceof ValidationError) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Input validation failed: ${error.message}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+    
     return {
       content: [
         {
           type: "text",
-          text: `Failed to move reminder: ${(error as Error).message}`,
+          text: `Failed to move reminder: System error occurred`,
         },
       ],
       isError: true,
@@ -275,11 +534,21 @@ export async function handleMoveReminder(args: any): Promise<CallToolResult> {
 }
 
 /**
- * Lists all reminder lists
+ * Lists all reminder lists or creates a new one
+ * @param args - Optional arguments for creating a new list
  * @returns Result of the operation with the list of reminder lists in JSON format
  */
-export async function handleListReminderLists(): Promise<CallToolResult> {
+export async function handleListReminderLists(args?: any): Promise<CallToolResult> {
   try {
+    // Validate input for security if args provided
+    const validatedArgs = args ? validateInput(ListReminderListsSchema, args) : undefined;
+    
+    // Check if this is a request to create a new list
+    if (validatedArgs?.createNew) {
+      return handleCreateReminderList({ name: validatedArgs.createNew.name });
+    }
+
+    // Regular list operation
     // Use the Swift-based reminders manager
     const { lists } = await remindersManager.getReminders();
     
@@ -302,12 +571,28 @@ export async function handleListReminderLists(): Promise<CallToolResult> {
       isError: false,
     };
   } catch (error) {
+    // Handle validation errors with sanitized messages
+    if (error instanceof ValidationError) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              error: `Input validation failed: ${error.message}`,
+              isError: true
+            }, null, 2),
+          },
+        ],
+        isError: true,
+      };
+    }
+    
     return {
       content: [
         {
           type: "text",
           text: JSON.stringify({
-            error: `Failed to list reminder lists: ${(error as Error).message}`,
+            error: "Failed to list reminder lists: System error occurred",
             isError: true
           }, null, 2),
         },
@@ -324,17 +609,20 @@ export async function handleListReminderLists(): Promise<CallToolResult> {
  */
 export async function handleListReminders(args: any): Promise<CallToolResult> {
   try {
-    const showCompleted = args.showCompleted === true;
+    // Validate input for security
+    const validatedArgs = validateInput(ListRemindersSchema, args);
+    
+    const showCompleted = validatedArgs.showCompleted === true;
     const { reminders } = await remindersManager.getReminders(showCompleted);
     
     // Filter reminders
     let filteredReminders = reminders
       .filter(r => showCompleted || !r.isCompleted)
-      .filter(r => !args.list || r.list === args.list);
+      .filter(r => !validatedArgs.list || r.list === validatedArgs.list);
     
     // Search filter
-    if (args.search) {
-      const searchLower = args.search.toLowerCase();
+    if (validatedArgs.search) {
+      const searchLower = validatedArgs.search.toLowerCase();
       filteredReminders = filteredReminders.filter(r => 
         r.title.toLowerCase().includes(searchLower) ||
         (r.notes && r.notes.toLowerCase().includes(searchLower))
@@ -342,7 +630,7 @@ export async function handleListReminders(args: any): Promise<CallToolResult> {
     }
     
     // Due date filter
-    if (args.dueWithin) {
+    if (validatedArgs.dueWithin) {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const tomorrow = new Date(today);
@@ -351,11 +639,11 @@ export async function handleListReminders(args: any): Promise<CallToolResult> {
       weekEnd.setDate(weekEnd.getDate() + 7);
       
       filteredReminders = filteredReminders.filter(r => {
-        if (args.dueWithin === "no-date") return !r.dueDate;
+        if (validatedArgs.dueWithin === "no-date") return !r.dueDate;
         if (!r.dueDate) return false;
         
         const dueDate = new Date(r.dueDate);
-        switch (args.dueWithin) {
+        switch (validatedArgs.dueWithin) {
           case "overdue":
             return dueDate < today;
           case "today":
@@ -376,7 +664,7 @@ export async function handleListReminders(args: any): Promise<CallToolResult> {
       list: r.list,
       isCompleted: r.isCompleted === true,
       dueDate: r.dueDate || null,
-      notes: r.notes || null
+      notes: r.notes || null,
     }));
 
     // Create response object
@@ -384,10 +672,10 @@ export async function handleListReminders(args: any): Promise<CallToolResult> {
       reminders: mappedReminders,
       total: mappedReminders.length,
       filter: {
-        list: args.list || 'all',
+        list: validatedArgs.list || 'all',
         showCompleted,
-        search: args.search || null,
-        dueWithin: args.dueWithin || null
+        search: validatedArgs.search || null,
+        dueWithin: validatedArgs.dueWithin || null
       }
     };
 
@@ -399,15 +687,84 @@ export async function handleListReminders(args: any): Promise<CallToolResult> {
       isError: false
     };
   } catch (error) {
+    // Handle validation errors with sanitized messages
+    if (error instanceof ValidationError) {
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            error: `Input validation failed: ${error.message}`,
+            isError: true
+          })
+        }],
+        isError: true
+      };
+    }
+    
     return {
       content: [{
         type: "text",
         text: JSON.stringify({
-          error: `Failed to list reminders: ${(error as Error).message}`,
+          error: "Failed to list reminders: System error occurred",
           isError: true
         })
       }],
       isError: true
+    };
+  }
+}
+
+
+/**
+ * Creates a new reminder list
+ * @param args - Arguments for creating a reminder list
+ * @returns Result of the operation
+ */
+export async function handleCreateReminderList(args: any): Promise<CallToolResult> {
+  try {
+    // Validate input for security
+    const validatedArgs = validateInput(CreateReminderListSchema, args);
+    
+    let scriptBody = '';
+    
+    // Create a new list
+    scriptBody += `set newList to make new list with properties {name:${quoteAppleScriptString(validatedArgs.name)}}\n`;
+    
+    const script = createRemindersScript(scriptBody);
+    debugLog("Running AppleScript:", script);
+    executeAppleScript(script);
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Successfully created reminder list: ${validatedArgs.name}`,
+        },
+      ],
+      isError: false,
+    };
+  } catch (error) {
+    // Handle validation errors with sanitized messages
+    if (error instanceof ValidationError) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Input validation failed: ${error.message}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+    
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Failed to create reminder list: System error occurred`,
+        },
+      ],
+      isError: true,
     };
   }
 }

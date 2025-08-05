@@ -51,4 +51,9 @@ export function createRemindersScript(scriptBody: string): string {
  */
 export function quoteAppleScriptString(str: string): string {
   return `"${escapeAppleScriptString(str)}"`;
-} 
+}
+
+
+
+
+ 

@@ -1,15 +1,15 @@
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import type { Reminder, ReminderList } from '../types/index.js';
 import { logger } from './logger.js';
-
-function getModulePaths() {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  return { __filename, __dirname };
-}
+import { getModulePaths } from './moduleHelpers.js';
+import { 
+  findSecureBinaryPath, 
+  validateBinarySecurity, 
+  getEnvironmentBinaryConfig,
+  BinaryValidationError 
+} from './binaryValidator.js';
 
 /**
  * Class to interact with Apple Reminders using the Swift binary
@@ -29,11 +29,11 @@ export class RemindersManager {
   }
 
   private findBinaryPath(): string {
-    // 自动向上查找包含 package.json 的目录作为项目根目录
+    // Auto-discover project root by searching for package.json
     const { __filename, __dirname } = getModulePaths();
     let projectRoot = path.dirname(__filename);
     const pathToPkg = 'package.json';
-    const maxDepth = 10; // 防止死循环
+    const maxDepth = 10; // Prevent infinite loops
     let depth = 0;
     while (!fs.existsSync(path.join(projectRoot, pathToPkg)) && depth < maxDepth) {
       const parent = path.dirname(projectRoot);
@@ -42,27 +42,36 @@ export class RemindersManager {
       depth++;
     }
 
-    // Try multiple possible binary locations
+    // Try multiple possible binary locations with absolute paths
     const possiblePaths = [
-      path.join(projectRoot, 'dist', 'swift', 'bin', 'GetReminders'),
-      path.join(projectRoot, 'src', 'swift', 'bin', 'GetReminders'),
-      path.join(projectRoot, 'swift', 'bin', 'GetReminders'),
-      path.join(__dirname, '..', '..', 'dist', 'swift', 'bin', 'GetReminders'),
-      path.join(__dirname, '..', '..', 'src', 'swift', 'bin', 'GetReminders')
+      path.resolve(projectRoot, 'dist', 'swift', 'bin', 'GetReminders'),
+      path.resolve(projectRoot, 'src', 'swift', 'bin', 'GetReminders'),
+      path.resolve(projectRoot, 'swift', 'bin', 'GetReminders'),
+      path.resolve(__dirname, '..', '..', 'dist', 'swift', 'bin', 'GetReminders'),
+      path.resolve(__dirname, '..', '..', 'src', 'swift', 'bin', 'GetReminders')
     ];
 
-    logger.debug(`Searching for Swift binary in the following locations:`);
-    for (const binaryPath of possiblePaths) {
-      logger.debug(`  - ${binaryPath}`);
-      if (fs.existsSync(binaryPath)) {
-        logger.debug(`✅ Found Swift binary at: ${binaryPath}`);
-        return binaryPath;
+    // Use secure binary path finder with environment-specific config
+    const securityConfig = getEnvironmentBinaryConfig();
+    const { path: securePath, validationResult } = findSecureBinaryPath(possiblePaths, securityConfig);
+
+    if (securePath && validationResult?.isValid) {
+      logger.debug(`✅ Secure Swift binary found at: ${securePath}`);
+      if (validationResult.hash) {
+        logger.debug(`Binary hash: ${validationResult.hash}`);
       }
+      return securePath;
     }
 
-    // If not found, use the default path for better error messaging
-    const defaultPath = path.join(projectRoot, 'dist', 'swift', 'bin', 'GetReminders');
-    logger.debug(`❌ Binary not found in any location, using default: ${defaultPath}`);
+    // If no secure path found, throw security error
+    const errorDetails = validationResult?.errors.join('; ') || 'No valid binary found';
+    logger.error(`❌ Binary security validation failed: ${errorDetails}`);
+    
+    // For backward compatibility, return default path but log security warning
+    const defaultPath = path.resolve(projectRoot, 'dist', 'swift', 'bin', 'GetReminders');
+    logger.warn(`⚠️  Using unvalidated binary path for backward compatibility: ${defaultPath}`);
+    logger.warn(`⚠️  SECURITY WARNING: Binary integrity could not be verified`);
+    
     return defaultPath;
   }
 
@@ -70,10 +79,17 @@ export class RemindersManager {
     logger.debug(`Binary path resolved to: ${this.binaryPath}`);
     logger.debug(`Running from compiled code: true`);
     
-    // Check if the binary exists and is executable
-    if (!fs.existsSync(this.binaryPath)) {
-      logger.error(`Swift binary not found at ${this.binaryPath}`);
-      throw new Error(`Swift binary not found. Please run the build script first:
+    // Perform comprehensive security validation
+    const securityConfig = getEnvironmentBinaryConfig();
+    const validationResult = validateBinarySecurity(this.binaryPath, securityConfig);
+    
+    if (!validationResult.isValid) {
+      const errorMessage = validationResult.errors.join('\n  - ');
+      logger.error(`Swift binary security validation failed:\n  - ${errorMessage}`);
+      
+      // Provide helpful error message based on validation failure
+      if (validationResult.errors.some(e => e.includes('FILE_NOT_FOUND'))) {
+        throw new BinaryValidationError(`Swift binary not found. Please run the build script first:
         
   npm run build:swift
   
@@ -81,22 +97,26 @@ Or build the complete project:
   
   npm run build
 
-Binary should be located at: ${this.binaryPath}`);
-    }
-    
-    // Ensure the binary is executable
-    try {
-      fs.accessSync(this.binaryPath, fs.constants.X_OK);
-      logger.debug(`✅ Binary is executable`);
-    } catch (error) {
-      logger.error(`Swift binary is not executable: ${error}`);
-      throw new Error(`Swift binary is not executable. Please check permissions:
+Binary should be located at: ${this.binaryPath}`, 'BINARY_NOT_FOUND');
+      }
+      
+      if (validationResult.errors.some(e => e.includes('NOT_EXECUTABLE'))) {
+        throw new BinaryValidationError(`Swift binary is not executable. Please check permissions:
         
   chmod +x "${this.binaryPath}"
   
 Or rebuild the binary:
   
-  npm run build:swift`);
+  npm run build:swift`, 'BINARY_NOT_EXECUTABLE');
+      }
+      
+      // Generic security error
+      throw new BinaryValidationError(`Binary security validation failed: ${errorMessage}`, 'SECURITY_VALIDATION_FAILED');
+    }
+    
+    logger.debug(`✅ Binary security validation passed`);
+    if (validationResult.hash) {
+      logger.debug(`Binary integrity hash: ${validationResult.hash}`);
     }
   }
   
@@ -290,10 +310,13 @@ Or rebuild the binary:
       lists,
       reminders: reminders.map(reminder => ({
         ...reminder,
-        isCompleted: this.normalizeIsCompleted(reminder.isCompleted)
+        isCompleted: this.normalizeIsCompleted(reminder.isCompleted),
       }))
     };
   }
+
+
+
 }
 
 // Export a singleton instance

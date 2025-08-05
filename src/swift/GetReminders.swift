@@ -5,6 +5,7 @@ import EventKit
 class RemindersManager {
     private let eventStore = EKEventStore()
     
+    
     // Request access to reminders
     func requestAccess(completion: @escaping (Bool, Error?) -> Void) {
         if #available(macOS 14.0, *) {
@@ -70,6 +71,9 @@ class RemindersManager {
         }
     }
     
+    
+    
+    
     // Print reminder details
     func printReminderDetails(reminder: EKReminder) {
         print("Title: \(reminder.title ?? "No Title")")
@@ -84,6 +88,7 @@ class RemindersManager {
         if let notes = reminder.notes, !notes.isEmpty {
             print("Notes: \(notes)")
         }
+        
         
         if let url = reminder.url {
             print("URL: \(url.absoluteString)")
@@ -106,7 +111,11 @@ let manager = RemindersManager()
 let args = CommandLine.arguments
 print("DEBUG: Command line arguments: \(args)")
 let showCompleted = args.contains("--show-completed")
+let listName = args.first(where: { $0.hasPrefix("--list=") })?.replacingOccurrences(of: "--list=", with: "")
 print("DEBUG: Show completed tasks: \(showCompleted)")
+if let listName = listName {
+    print("DEBUG: Target list: \(listName)")
+}
 
 // Create a dispatch group to wait for async operations
 let group = DispatchGroup()

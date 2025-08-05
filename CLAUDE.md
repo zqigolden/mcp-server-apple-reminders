@@ -118,6 +118,7 @@ NODE_ENV=test npm test  # Test environment
 - **Swift**: Compiles to `dist/swift/bin/GetReminders` with EventKit framework
 - **Package**: Entry point `dist/index.js` with Node.js shebang
 
+
 ### Architecture Notes
 - **Project Root Discovery**: Auto-detects via package.json search (up to 10 levels)
 - **Binary Management**: Robust path discovery with fallbacks
@@ -138,7 +139,7 @@ NODE_ENV=test npm test  # Test environment
 - URL handling integrated with notes field, not separate properties
 
 ### MCP Protocol Implementation
-- 6 core tools with comprehensive parameter validation
+- 5 core tools with comprehensive parameter validation
 - Consistent error response format across all tools
 - Tool parameter validation using dual schema approach (Zod + ArkType)
 

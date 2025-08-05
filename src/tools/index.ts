@@ -12,7 +12,8 @@ import {
   handleListReminders,
   handleUpdateReminder,
   handleDeleteReminder,
-  handleMoveReminder
+  handleMoveReminder,
+  handleCreateReminderList
 } from "./handlers.js";
 
 /**
@@ -32,7 +33,7 @@ export async function handleToolCall(name: string, args: any): Promise<CallToolR
       return handleListReminders(args);
     
     case "list_reminder_lists":
-      return handleListReminderLists();
+      return handleListReminderLists(args);
     
     case "update_reminder":
       return handleUpdateReminder(args);
@@ -42,6 +43,7 @@ export async function handleToolCall(name: string, args: any): Promise<CallToolR
     
     case "move_reminder":
       return handleMoveReminder(args);
+    
     
     default:
       return {
