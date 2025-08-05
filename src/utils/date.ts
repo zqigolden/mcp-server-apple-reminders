@@ -5,7 +5,8 @@
 
 import moment from "moment";
 import { debugLog } from "./logger.js";
-import { execSync } from "child_process";
+import { spawn } from "child_process";
+import { promisify } from "util";
 
 // Cache for the system's 24-hour time preference (macOS specific)
 let use24HourTimeCached: boolean | undefined;
@@ -26,6 +27,90 @@ export function clearTimePreferenceCache(): void {
 }
 
 /**
+ * Safely executes system command to read preferences
+ * @param command - Command to execute 
+ * @param args - Command arguments
+ * @param timeout - Timeout in milliseconds
+ * @returns Promise with command output
+ */
+async function safeSystemCommand(command: string, args: string[], timeout = 5000): Promise<string> {
+    return new Promise((resolve, reject) => {
+        // Validate command and arguments for security
+        const allowedCommands = ['defaults'];
+        const allowedDefaultsArgs = ['-g', 'AppleICUForce24HourTime', 'read'];
+        
+        if (!allowedCommands.includes(command)) {
+            reject(new Error(`Command not allowed: ${command}`));
+            return;
+        }
+        
+        // Validate arguments for defaults command
+        if (command === 'defaults') {
+            const hasInvalidArg = args.some(arg => 
+                !allowedDefaultsArgs.includes(arg) && 
+                !arg.startsWith('Apple') // Allow Apple* preference keys
+            );
+            if (hasInvalidArg) {
+                reject(new Error(`Invalid arguments for defaults command`));
+                return;
+            }
+        }
+        
+        const process = spawn(command, args, {
+            stdio: ['ignore', 'pipe', 'pipe'],
+            timeout: timeout,
+            detached: false,
+        });
+        
+        let stdout = '';
+        let stderr = '';
+        
+        process.stdout?.on('data', (data) => {
+            stdout += data.toString();
+        });
+        
+        process.stderr?.on('data', (data) => {
+            stderr += data.toString();
+        });
+        
+        process.on('close', (code) => {
+            if (code === 0) {
+                resolve(stdout.trim());
+            } else {
+                reject(new Error(`Command failed with code ${code}: ${stderr}`));
+            }
+        });
+        
+        process.on('error', (error) => {
+            reject(new Error(`Process error: ${error.message}`));
+        });
+        
+        // Set timeout
+        setTimeout(() => {
+            process.kill('SIGTERM');
+            reject(new Error(`Command timed out after ${timeout}ms`));
+        }, timeout);
+    });
+}
+
+/**
+ * Async version to safely determine 24-hour time preference
+ */
+async function determineSystem24HourTimeAsync(): Promise<boolean> {
+    try {
+        // NOTE: This command is macOS specific. It will fail on other platforms.
+        const result = await safeSystemCommand('defaults', ['read', '-g', 'AppleICUForce24HourTime']);
+        const is24Hour = result === '1';
+        debugLog(`System 24-hour time determined: ${is24Hour ? '24-hour' : '12-hour'}`);
+        return is24Hour;
+    } catch (error) {
+        debugLog(`Could not determine 24-hour setting using 'defaults' command. ` +
+                 `Error: ${(error as Error).message}. Defaulting to 12-hour format.`);
+        return false; // Default to 12-hour on failure
+    }
+}
+
+/**
  * Determines if the system uses 24-hour time by reading a macOS default setting.
  * Caches the result for subsequent calls. Defaults to 12-hour on error or non-macOS.
  * @returns boolean - true if system uses 24-hour time, false otherwise.
@@ -33,16 +118,16 @@ export function clearTimePreferenceCache(): void {
 function determineSystem24HourTime(): boolean {
     // Cache the result after the first successful determination
     if (use24HourTimeCached === undefined) {
-        try {
-            // NOTE: This command is macOS specific. It will fail on other platforms.
-            const result = execSync('defaults read -g AppleICUForce24HourTime').toString().trim();
-            use24HourTimeCached = result === '1';
-            debugLog(`System 24-hour time determined: ${use24HourTimeCached ? '24-hour' : '12-hour'}`);
-        } catch (error) {
-            debugLog(`Could not determine 24-hour setting using 'defaults' command. ` +
-                     `Error: ${error}. Defaulting to 12-hour format.`);
-            use24HourTimeCached = false; // Default to 12-hour on failure
-        }
+        // Set safe default immediately
+        use24HourTimeCached = false;
+        
+        // Attempt to get the preference asynchronously and update cache
+        determineSystem24HourTimeAsync().then(result => {
+            use24HourTimeCached = result;
+            debugLog(`System 24-hour time preference updated: ${result ? '24-hour' : '12-hour'}`);
+        }).catch(error => {
+            debugLog(`Failed to determine 24-hour time preference: ${error.message}`);
+        });
     }
     return use24HourTimeCached;
 }
