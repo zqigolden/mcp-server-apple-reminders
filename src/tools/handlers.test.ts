@@ -327,7 +327,7 @@ describe('handleCreateReminder', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toContain('Successfully created reminder: Meeting Tomorrow');
-    expect(mockParseDateWithType).toHaveBeenCalledWith('2024-03-15 10:00:00');
+    expect(mockGenerateDateProperty).toHaveBeenCalledWith('2024-03-15 10:00:00', expect.any(Function));
     expect(mockExecuteAppleScript).toHaveBeenCalled();
   });
 
@@ -405,7 +405,7 @@ describe('handleCreateReminder', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toContain('Successfully created reminder: Important Meeting');
-    expect(mockParseDateWithType).toHaveBeenCalledWith('2024-12-25');
+    expect(mockGenerateDateProperty).toHaveBeenCalledWith('2024-12-25', expect.any(Function));
     
     // Verify the generated script contains allday due date for date-only format
     const generatedScript = mockCreateRemindersScript.mock.calls[0][0];
@@ -423,7 +423,7 @@ describe('handleCreateReminder', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toContain('Successfully created reminder: Appointment');
-    expect(mockParseDateWithType).toHaveBeenCalledWith('2024-12-25 14:30:00');
+    expect(mockGenerateDateProperty).toHaveBeenCalledWith('2024-12-25 14:30:00', expect.any(Function));
     
     // Verify the generated script contains regular due date for datetime format
     const generatedScript = mockCreateRemindersScript.mock.calls[0][0];

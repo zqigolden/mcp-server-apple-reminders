@@ -10,6 +10,47 @@ import { debugLog } from "../utils/logger.js";
 import { remindersManager } from "../utils/reminders.js";
 
 /**
+ * Combines note and URL into a single note string
+ * @param note - Optional note text
+ * @param url - Optional URL to append
+ * @returns Combined note string or empty string if no content
+ */
+function combineNoteAndUrl(note: string | undefined, url: string | undefined): string {
+  if (!note && !url) return "";
+  if (!note) return `URL: ${url}`;
+  if (!url) return note;
+  return `${note}\n\nURL: ${url}`;
+}
+
+/**
+ * Determines how to handle note updates for the update reminder operation
+ * @param note - Optional note text (undefined means don't update, empty string means clear)
+ * @param url - Optional URL to append
+ * @returns Object indicating the update strategy
+ */
+function determineNoteUpdateStrategy(note: string | undefined, url: string | undefined): {
+  shouldReplace: boolean;
+  shouldAppendUrl: boolean;
+  finalNote?: string;
+} {
+  if (!url && note === undefined) {
+    return { shouldReplace: false, shouldAppendUrl: false };
+  }
+  
+  if (note !== undefined) {
+    // Note is explicitly provided (even if empty)
+    return { 
+      shouldReplace: true, 
+      shouldAppendUrl: false, 
+      finalNote: combineNoteAndUrl(note, url) 
+    };
+  }
+  
+  // Only URL provided, append to existing note
+  return { shouldReplace: false, shouldAppendUrl: true };
+}
+
+/**
  * Creates a new reminder
  * @param args - Arguments for creating a reminder
  * @returns Result of the operation
@@ -17,14 +58,7 @@ import { remindersManager } from "../utils/reminders.js";
 export async function handleCreateReminder(args: any): Promise<CallToolResult> {
   try {
     // Prepare note content by combining note and URL if provided
-    let finalNote = args.note || "";
-    if (args.url) {
-      if (finalNote) {
-        finalNote = `${finalNote}\n\nURL: ${args.url}`;
-      } else {
-        finalNote = `URL: ${args.url}`;
-      }
-    }
+    const finalNote = combineNoteAndUrl(args.note, args.url);
 
     // Build the script body
     let scriptBody = '';
@@ -41,8 +75,6 @@ export async function handleCreateReminder(args: any): Promise<CallToolResult> {
     
     // Add due date if specified
     if (args.dueDate) {
-      const { formatted } = parseDateWithType(args.dueDate);
-      debugLog("Parsed date:", formatted);
       scriptBody += generateDateProperty(args.dueDate, quoteAppleScriptString);
     }
     
@@ -90,19 +122,8 @@ export async function handleCreateReminder(args: any): Promise<CallToolResult> {
  */
 export async function handleUpdateReminder(args: any): Promise<CallToolResult> {
   try {
-    // Prepare note content by combining note and URL if provided
-    let finalNote = args.note;
-    if (args.url) {
-      if (finalNote) {
-        finalNote = `${finalNote}\n\nURL: ${args.url}`;
-      } else if (finalNote !== undefined) {
-        // If note is defined but falsy (e.g., empty string), set it to just the URL
-        finalNote = `URL: ${args.url}`;
-      } else {
-        // We'll handle this differently - append to existing body
-        finalNote = undefined;
-      }
-    }
+    // Determine note update strategy
+    const noteStrategy = determineNoteUpdateStrategy(args.note, args.url);
 
     // Build the script body
     let scriptBody = '';
@@ -131,10 +152,10 @@ export async function handleUpdateReminder(args: any): Promise<CallToolResult> {
       scriptBody += `  set ${dateType} of targetReminder to date ${quoteAppleScriptString(formatted)}\n`;
     }
     
-    if (finalNote !== undefined) {
-      scriptBody += `  set body of targetReminder to ${quoteAppleScriptString(finalNote)}\n`;
-    } else if (args.url && args.note === undefined) {
-      // Special case: append URL to existing body
+    // Handle note updates based on strategy
+    if (noteStrategy.shouldReplace) {
+      scriptBody += `  set body of targetReminder to ${quoteAppleScriptString(noteStrategy.finalNote!)}\n`;
+    } else if (noteStrategy.shouldAppendUrl) {
       scriptBody += `  set currentBody to body of targetReminder\n`;
       scriptBody += `  if currentBody is missing value then set currentBody to ""\n`;
       scriptBody += `  set body of targetReminder to currentBody & ${quoteAppleScriptString(`\n\nURL: ${args.url}`)}\n`;
@@ -154,7 +175,7 @@ export async function handleUpdateReminder(args: any): Promise<CallToolResult> {
     const updates = [];
     if (args.newTitle) updates.push(`title to "${args.newTitle}"`);
     if (args.dueDate) updates.push(`due date`);
-    if (args.note !== undefined || args.url) updates.push(`notes`);
+    if (noteStrategy.shouldReplace || noteStrategy.shouldAppendUrl) updates.push(`notes`);
     if (args.completed !== undefined) updates.push(`completed to ${args.completed}`);
 
     return {

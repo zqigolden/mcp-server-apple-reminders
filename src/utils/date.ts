@@ -11,8 +11,9 @@ import { execSync } from "child_process";
 let use24HourTimeCached: boolean | undefined;
 
 // Date format constants for AppleScript compatibility
-const DATE_FORMAT_12_HOUR = "MMMM D, YYYY h:mm:ss A" as const;
-const DATE_FORMAT_24_HOUR = "MMMM D, YYYY HH:mm:ss" as const;
+const DATE_ONLY_FORMAT = "MMMM D, YYYY" as const;
+const DATETIME_FORMAT_12_HOUR = "MMMM D, YYYY h:mm:ss A" as const;
+const DATETIME_FORMAT_24_HOUR = "MMMM D, YYYY HH:mm:ss" as const;
 
 /**
  * Clears the cached 24-hour time preference (for testing purposes only)
@@ -81,12 +82,9 @@ export interface ParsedDate {
  */
 export function parseDateWithType(dateStr: string): ParsedDate {
   const isDateOnly = isDateOnlyFormat(dateStr);
-  const formatted = parseDate(dateStr);
+  const formatted = formatParsedDate(dateStr, isDateOnly);
   
-  return {
-    formatted,
-    isDateOnly
-  };
+  return { formatted, isDateOnly };
 }
 
 /**
@@ -96,9 +94,56 @@ export function parseDateWithType(dateStr: string): ParsedDate {
  * @returns AppleScript property string for the appropriate date type
  */
 export function generateDateProperty(dateStr: string, quoteFn: (str: string) => string): string {
-  const { formatted, isDateOnly } = parseDateWithType(dateStr);
+  const isDateOnly = isDateOnlyFormat(dateStr);
+  const formatted = formatParsedDate(dateStr, isDateOnly);
   const dateType = isDateOnly ? 'allday due date' : 'due date';
   return `, ${dateType}:date ${quoteFn(formatted)}`;
+}
+
+/**
+ * Internal helper to format a parsed date based on type
+ * @param dateStr - Date string to parse
+ * @param isDateOnly - Whether this is a date-only format
+ * @returns Formatted date string
+ * @throws Error if the date format is invalid
+ */
+function formatParsedDate(dateStr: string, isDateOnly: boolean): string {
+  try {
+    const parsedDate = moment(dateStr, [
+      "YYYY-MM-DD HH:mm:ss", // Explicitly handle the documented format first
+      moment.ISO_8601,       // Handle ISO formats
+      "YYYY-MM-DD",          // Handle date-only format
+    ], true); // Use strict parsing
+
+    if (!parsedDate.isValid()) {
+      throw new Error(
+        `Invalid or unsupported date format: "${dateStr}". ` +
+        `Supported formats: YYYY-MM-DD HH:mm:ss, YYYY-MM-DD, ISO 8601. ` +
+        `Example: "2024-12-25 14:30:00"`
+      );
+    }
+
+    const englishMoment = parsedDate.locale('en');
+    
+    if (isDateOnly) {
+      const formatted = englishMoment.format(DATE_ONLY_FORMAT);
+      debugLog("Parsed date (date-only):", formatted);
+      return formatted;
+    }
+    
+    const use24Hour = determineSystem24HourTime();
+    const format = use24Hour ? DATETIME_FORMAT_24_HOUR : DATETIME_FORMAT_12_HOUR;
+    const formatted = englishMoment.format(format);
+    debugLog(`Parsed date (${use24Hour ? '24' : '12'}-hour):`, formatted);
+    return formatted;
+  } catch (error) {
+    // Re-throw with standardized error message
+    throw new Error(
+      `Invalid or unsupported date format: "${dateStr}". ` +
+      `Supported formats: YYYY-MM-DD HH:mm:ss, YYYY-MM-DD, ISO 8601. ` +
+      `Example: "2024-12-25 14:30:00"`
+    );
+  }
 }
 
 /**
@@ -118,50 +163,10 @@ export function generateDateProperty(dateStr: string, quoteFn: (str: string) => 
  */
 export function parseDate(dateStr: string): string {
   try {
-    // Check if this is a date-only format (YYYY-MM-DD without time)
     const isDateOnly = isDateOnlyFormat(dateStr);
-    
-    // Try parsing with moment, expecting 'YYYY-MM-DD HH:mm:ss' or other moment-parsable formats
-    const parsedDate = moment(dateStr, [
-      "YYYY-MM-DD HH:mm:ss", // Explicitly handle the documented format first
-      moment.ISO_8601,       // Handle ISO formats
-      "YYYY-MM-DD",          // Handle date-only format
-    ], true); // Use strict parsing
-
-    // If not valid, throw error with helpful context
-    if (!parsedDate.isValid()) {
-      throw new Error(
-        `Invalid or unsupported date format: "${dateStr}". ` +
-        `Supported formats: YYYY-MM-DD HH:mm:ss, YYYY-MM-DD, ISO 8601. ` +
-        `Example: "2024-12-25 14:30:00"`
-      );
-    }
-
-    // Format with English locale for AppleScript compatibility
-    const englishMoment = parsedDate.locale('en');
-    
-    let formattedDate;
-    if (isDateOnly) {
-        // For date-only inputs, return just the date without time
-        formattedDate = englishMoment.format("MMMM D, YYYY");
-        debugLog("Parsed date (date-only):", formattedDate);
-    } else {
-        // Check if system uses 24-hour time for datetime inputs
-        const use24Hour = determineSystem24HourTime();
-        
-        formattedDate = use24Hour 
-            ? englishMoment.format(DATE_FORMAT_24_HOUR)
-            : englishMoment.format(DATE_FORMAT_12_HOUR);
-        
-        debugLog(`Parsed date (${use24Hour ? '24' : '12'}-hour):`, formattedDate);
-    }
-    return formattedDate;
+    return formatParsedDate(dateStr, isDateOnly);
   } catch (error) {
     debugLog("Date parsing error:", error);
-    throw new Error(
-      `Invalid or unsupported date format: "${dateStr}". ` +
-      `Supported formats: YYYY-MM-DD HH:mm:ss, YYYY-MM-DD, ISO 8601. ` +
-      `Example: "2024-12-25 14:30:00"`
-    );
+    throw error; // Re-throw the formatted error from formatParsedDate
   }
 } 
