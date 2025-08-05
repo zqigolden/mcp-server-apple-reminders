@@ -19,7 +19,7 @@ export const TOOLS: Tool[] = [
         dueDate: {
           type: "string",
           description:
-            "Optional due date in format 'YYYY-MM-DD HH:mm:ss' (e.g., '2025-03-12 10:00:00')",
+            "Optional due date. Use 'YYYY-MM-DD' for date-only reminders (e.g., '2025-03-12') or 'YYYY-MM-DD HH:mm:ss' for specific time reminders (e.g., '2025-03-12 10:00:00')",
         },
         list: {
           type: "string",
@@ -80,7 +80,7 @@ export const TOOLS: Tool[] = [
         },
         dueDate: {
           type: "string",
-          description: "New due date in format 'YYYY-MM-DD HH:mm:ss' (optional)",
+          description: "New due date. Use 'YYYY-MM-DD' for date-only reminders or 'YYYY-MM-DD HH:mm:ss' for specific time reminders (optional)",
         },
         note: {
           type: "string",

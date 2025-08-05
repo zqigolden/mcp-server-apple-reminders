@@ -5,7 +5,7 @@
 
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { createRemindersScript, executeAppleScript, quoteAppleScriptString } from "../utils/applescript.js";
-import { parseDate } from "../utils/date.js";
+import { generateDateProperty, parseDateWithType } from "../utils/date.js";
 import { debugLog } from "../utils/logger.js";
 import { remindersManager } from "../utils/reminders.js";
 
@@ -41,19 +41,9 @@ export async function handleCreateReminder(args: any): Promise<CallToolResult> {
     
     // Add due date if specified
     if (args.dueDate) {
-      const parsedDate = parseDate(args.dueDate);
-      debugLog("Parsed date:", parsedDate);
-      
-      // Check if this is a date-only format (YYYY-MM-DD without time)
-      const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(args.dueDate.trim());
-      
-      if (isDateOnly) {
-        // Use allday due date for date-only reminders
-        scriptBody += `, allday due date:date ${quoteAppleScriptString(parsedDate)}`;
-      } else {
-        // Use regular due date for datetime reminders
-        scriptBody += `, due date:date ${quoteAppleScriptString(parsedDate)}`;
-      }
+      const { formatted } = parseDateWithType(args.dueDate);
+      debugLog("Parsed date:", formatted);
+      scriptBody += generateDateProperty(args.dueDate, quoteAppleScriptString);
     }
     
     // Add note if specified (including URL if provided)
@@ -136,18 +126,9 @@ export async function handleUpdateReminder(args: any): Promise<CallToolResult> {
     }
     
     if (args.dueDate) {
-      const parsedDate = parseDate(args.dueDate);
-      
-      // Check if this is a date-only format (YYYY-MM-DD without time)
-      const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(args.dueDate.trim());
-      
-      if (isDateOnly) {
-        // Use allday due date for date-only reminders
-        scriptBody += `  set allday due date of targetReminder to date ${quoteAppleScriptString(parsedDate)}\n`;
-      } else {
-        // Use regular due date for datetime reminders
-        scriptBody += `  set due date of targetReminder to date ${quoteAppleScriptString(parsedDate)}\n`;
-      }
+      const { formatted, isDateOnly } = parseDateWithType(args.dueDate);
+      const dateType = isDateOnly ? 'allday due date' : 'due date';
+      scriptBody += `  set ${dateType} of targetReminder to date ${quoteAppleScriptString(formatted)}\n`;
     }
     
     if (finalNote !== undefined) {

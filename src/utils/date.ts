@@ -48,6 +48,60 @@ function determineSystem24HourTime(): boolean {
 }
 
 /**
+ * Checks if a date string represents a date-only format (YYYY-MM-DD without time)
+ * @param dateStr - Date string to check
+ * @returns true if the string is in date-only format, false otherwise
+ * 
+ * @example
+ * ```typescript
+ * isDateOnlyFormat('2024-12-25') // Returns: true
+ * isDateOnlyFormat('2024-12-25 14:30:00') // Returns: false
+ * isDateOnlyFormat('2024-12-25T14:30:00Z') // Returns: false
+ * ```
+ */
+export function isDateOnlyFormat(dateStr: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim());
+}
+
+/**
+ * Result of parsing a date string, containing both formatted date and type information
+ */
+export interface ParsedDate {
+  /** The formatted date string suitable for AppleScript */
+  formatted: string;
+  /** Whether this represents a date-only (true) or datetime (false) */
+  isDateOnly: boolean;
+}
+
+/**
+ * Parses a date string and returns both the formatted result and type information
+ * @param dateStr - Date string in standard format
+ * @returns Object containing formatted date and type information
+ * @throws Error if the date format is invalid or unsupported
+ */
+export function parseDateWithType(dateStr: string): ParsedDate {
+  const isDateOnly = isDateOnlyFormat(dateStr);
+  const formatted = parseDate(dateStr);
+  
+  return {
+    formatted,
+    isDateOnly
+  };
+}
+
+/**
+ * Generates AppleScript property string for date handling
+ * @param dateStr - Date string to parse
+ * @param quoteFn - Function to quote AppleScript strings
+ * @returns AppleScript property string for the appropriate date type
+ */
+export function generateDateProperty(dateStr: string, quoteFn: (str: string) => string): string {
+  const { formatted, isDateOnly } = parseDateWithType(dateStr);
+  const dateType = isDateOnly ? 'allday due date' : 'due date';
+  return `, ${dateType}:date ${quoteFn(formatted)}`;
+}
+
+/**
  * Parses a date string in various formats and returns a formatted date string
  * suitable for AppleScript with locale-independent English month names
  * 
@@ -65,7 +119,7 @@ function determineSystem24HourTime(): boolean {
 export function parseDate(dateStr: string): string {
   try {
     // Check if this is a date-only format (YYYY-MM-DD without time)
-    const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim());
+    const isDateOnly = isDateOnlyFormat(dateStr);
     
     // Try parsing with moment, expecting 'YYYY-MM-DD HH:mm:ss' or other moment-parsable formats
     const parsedDate = moment(dateStr, [

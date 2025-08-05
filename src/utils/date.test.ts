@@ -19,6 +19,28 @@ interface MockMomentInstance {
   locale: jest.MockedFunction<(locale: string) => MockMomentInstance>;
 }
 
+describe('isDateOnlyFormat utility function', () => {
+  test('should identify date-only format correctly', async () => {
+    const { isDateOnlyFormat } = await import('./date.js');
+    
+    // Valid date-only formats
+    expect(isDateOnlyFormat('2024-12-25')).toBe(true);
+    expect(isDateOnlyFormat('2023-01-01')).toBe(true);
+    expect(isDateOnlyFormat('2025-02-28')).toBe(true);
+    expect(isDateOnlyFormat('  2024-12-25  ')).toBe(true); // with whitespace
+    
+    // Invalid date-only formats (should return false)
+    expect(isDateOnlyFormat('2024-12-25 14:30:00')).toBe(false);
+    expect(isDateOnlyFormat('2024-12-25T14:30:00Z')).toBe(false);
+    expect(isDateOnlyFormat('2024-12-25T14:30:00-05:00')).toBe(false);
+    expect(isDateOnlyFormat('12/25/2024')).toBe(false);
+    expect(isDateOnlyFormat('invalid-date')).toBe(false);
+    expect(isDateOnlyFormat('')).toBe(false);
+    expect(isDateOnlyFormat('2024-12')).toBe(false);
+    expect(isDateOnlyFormat('2024-12-25-extra')).toBe(false);
+  });
+});
+
 describe('Date Parser Tests (12-hour system)', () => {
   let mockMomentInstance: MockMomentInstance;
 
@@ -28,7 +50,7 @@ describe('Date Parser Tests (12-hour system)', () => {
     
     // Create mock moment instance
     mockMomentInstance = {
-      format: jest.fn().mockReturnValue('March 15, 2024 2:30:00 PM'),
+      format: jest.fn().mockReturnValue('15 March 2024 2:30:00 PM'),
       isValid: jest.fn().mockReturnValue(true),
       locale: jest.fn().mockReturnThis()
     } as MockMomentInstance;
@@ -36,44 +58,48 @@ describe('Date Parser Tests (12-hour system)', () => {
     mockMoment.mockReturnValue(mockMomentInstance as any);
   });
 
-  test('should parse ISO 8601 date format', async () => {
-    const { parseDate } = await import('./date.js');
-    const input = '2024-03-15T10:00:00Z';
-    const result = parseDate(input);
-    expect(mockMoment).toHaveBeenCalledWith(input, [
-      'YYYY-MM-DD HH:mm:ss', moment.ISO_8601, 'YYYY-MM-DD'
-    ], true);
-    expect(result).toBe('March 15, 2024 2:30:00 PM');
-  });
-
-  test('should parse YYYY-MM-DD HH:mm:ss format', async () => {
-    const { parseDate } = await import('./date.js');
-    const input = '2024-03-15 14:30:00';
-    const result = parseDate(input);
-    expect(mockMoment).toHaveBeenCalledWith(input, [
-      'YYYY-MM-DD HH:mm:ss', moment.ISO_8601, 'YYYY-MM-DD'
-    ], true);
-    expect(result).toBe('March 15, 2024 2:30:00 PM');
-  });
-
-  test('should parse YYYY-MM-DD format', async () => {
+  test('should parse date-only format without time', async () => {
+    mockMomentInstance.format.mockReturnValue('15 March 2024');
     const { parseDate } = await import('./date.js');
     const input = '2024-03-15';
     const result = parseDate(input);
     expect(mockMoment).toHaveBeenCalledWith(input, [
       'YYYY-MM-DD HH:mm:ss', moment.ISO_8601, 'YYYY-MM-DD'
     ], true);
-    expect(result).toBe('March 15, 2024 2:30:00 PM');
+    expect(mockMomentInstance.format).toHaveBeenCalledWith('D MMMM YYYY');
+    expect(result).toBe('15 March 2024');
   });
 
-  test('should format output with English locale for 12-hour system', async () => {
-    mockMomentInstance.format.mockReturnValue('December 25, 2024 6:30:00 PM');
+  test('should parse ISO 8601 date format with time', async () => {
+    const { parseDate } = await import('./date.js');
+    const input = '2024-03-15T10:00:00Z';
+    const result = parseDate(input);
+    expect(mockMoment).toHaveBeenCalledWith(input, [
+      'YYYY-MM-DD HH:mm:ss', moment.ISO_8601, 'YYYY-MM-DD'
+    ], true);
+    expect(mockMomentInstance.format).toHaveBeenCalledWith('D MMMM YYYY h:mm:ss A');
+    expect(result).toBe('15 March 2024 2:30:00 PM');
+  });
+
+  test('should parse YYYY-MM-DD HH:mm:ss format with time', async () => {
+    const { parseDate } = await import('./date.js');
+    const input = '2024-03-15 14:30:00';
+    const result = parseDate(input);
+    expect(mockMoment).toHaveBeenCalledWith(input, [
+      'YYYY-MM-DD HH:mm:ss', moment.ISO_8601, 'YYYY-MM-DD'
+    ], true);
+    expect(mockMomentInstance.format).toHaveBeenCalledWith('D MMMM YYYY h:mm:ss A');
+    expect(result).toBe('15 March 2024 2:30:00 PM');
+  });
+
+  test('should format datetime output with English locale for 12-hour system', async () => {
+    mockMomentInstance.format.mockReturnValue('25 December 2024 6:30:00 PM');
     const { parseDate } = await import('./date.js');
     const input = '2024-12-25 18:30:00';
     const result = parseDate(input);
     expect(mockMomentInstance.locale).toHaveBeenCalledWith('en');
-    expect(mockMomentInstance.format).toHaveBeenCalledWith('MMMM D, YYYY h:mm:ss A');
-    expect(result).toBe('December 25, 2024 6:30:00 PM');
+    expect(mockMomentInstance.format).toHaveBeenCalledWith('D MMMM YYYY h:mm:ss A');
+    expect(result).toBe('25 December 2024 6:30:00 PM');
   });
 
   test('should handle invalid date gracefully', async () => {
@@ -115,39 +141,39 @@ describe('Date Parser Tests (12-hour system)', () => {
     expect(mockMoment).toHaveBeenCalledWith(input, [
       'YYYY-MM-DD HH:mm:ss', moment.ISO_8601, 'YYYY-MM-DD'
     ], true);
-    expect(result).toBe('March 15, 2024 2:30:00 PM');
+    expect(result).toBe('15 March 2024 2:30:00 PM');
   });
 
   test('should handle system command failure gracefully', async () => {
     mockExecSync.mockImplementation(() => { throw new Error('Command failed'); });
-    mockMomentInstance.format.mockReturnValue('March 15, 2024 10:00:00 AM');
+    mockMomentInstance.format.mockReturnValue('15 March 2024 10:00:00 AM');
     const { parseDate } = await import('./date.js');
     const input = '2024-03-15 10:00:00';
     const result = parseDate(input);
     expect(mockMomentInstance.locale).toHaveBeenCalledWith('en');
-    expect(mockMomentInstance.format).toHaveBeenCalledWith('MMMM D, YYYY h:mm:ss A');
-    expect(result).toBe('March 15, 2024 10:00:00 AM');
+    expect(mockMomentInstance.format).toHaveBeenCalledWith('D MMMM YYYY h:mm:ss A');
+    expect(result).toBe('15 March 2024 10:00:00 AM');
   });
 
   test('should handle leap year date correctly', async () => {
-    mockMomentInstance.format.mockReturnValue('February 29, 2024 12:00:00 PM');
+    mockMomentInstance.format.mockReturnValue('29 February 2024 12:00:00 PM');
     const { parseDate } = await import('./date.js');
     const result = parseDate('2024-02-29 12:00:00');
-    expect(result).toBe('February 29, 2024 12:00:00 PM');
+    expect(result).toBe('29 February 2024 12:00:00 PM');
   });
 
   test('should handle end of year date correctly', async () => {
-    mockMomentInstance.format.mockReturnValue('December 31, 2024 11:59:59 PM');
+    mockMomentInstance.format.mockReturnValue('31 December 2024 11:59:59 PM');
     const { parseDate } = await import('./date.js');
     const result = parseDate('2024-12-31 23:59:59');
-    expect(result).toBe('December 31, 2024 11:59:59 PM');
+    expect(result).toBe('31 December 2024 11:59:59 PM');
   });
 
   test('should handle start of year date correctly', async () => {
-    mockMomentInstance.format.mockReturnValue('January 1, 2024 12:00:00 AM');
+    mockMomentInstance.format.mockReturnValue('1 January 2024 12:00:00 AM');
     const { parseDate } = await import('./date.js');
     const result = parseDate('2024-01-01 00:00:00');
-    expect(result).toBe('January 1, 2024 12:00:00 AM');
+    expect(result).toBe('1 January 2024 12:00:00 AM');
   });
 
   test('should handle moment parsing error', async () => {
@@ -176,7 +202,7 @@ describe('Date Parser Tests (24-hour system)', () => {
     
     // Create mock moment instance for 24-hour system
     mockMomentInstance = {
-      format: jest.fn().mockReturnValue('December 25, 2024 18:30:00'),
+      format: jest.fn().mockReturnValue('25 December 2024 18:30:00'),
       isValid: jest.fn().mockReturnValue(true),
       locale: jest.fn().mockReturnThis()
     } as MockMomentInstance;
@@ -190,7 +216,65 @@ describe('Date Parser Tests (24-hour system)', () => {
     const input = '2024-12-25 18:30:00';
     const result = parseDate(input);
     expect(mockMomentInstance.locale).toHaveBeenCalledWith('en');
-    expect(mockMomentInstance.format).toHaveBeenCalledWith('MMMM D, YYYY HH:mm:ss');
-    expect(result).toBe('December 25, 2024 18:30:00');
+    expect(mockMomentInstance.format).toHaveBeenCalledWith('D MMMM YYYY HH:mm:ss');
+    expect(result).toBe('25 December 2024 18:30:00');
+  });
+
+  test('should handle date-only format in 24-hour system', async () => {
+    mockMomentInstance.format.mockReturnValue('25 December 2024');
+    const { parseDate } = await import('./date.js');
+    const input = '2024-12-25';
+    const result = parseDate(input);
+    expect(mockMomentInstance.locale).toHaveBeenCalledWith('en');
+    expect(mockMomentInstance.format).toHaveBeenCalledWith('D MMMM YYYY');
+    expect(result).toBe('25 December 2024');
+  });
+});
+
+describe('New Utility Functions', () => {
+  let mockMomentInstance: MockMomentInstance;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    
+    // Create mock moment instance
+    mockMomentInstance = {
+      format: jest.fn().mockReturnValue('25 December 2024'),
+      isValid: jest.fn().mockReturnValue(true),
+      locale: jest.fn().mockReturnThis()
+    } as MockMomentInstance;
+    
+    mockMoment.mockReturnValue(mockMomentInstance as any);
+    mockExecSync.mockReturnValue(Buffer.from('0')); // 12-hour system
+  });
+
+  test('parseDateWithType should return both formatted date and type', async () => {
+    const { parseDateWithType } = await import('./date.js');
+    
+    // Test date-only format
+    const dateOnlyResult = parseDateWithType('2024-12-25');
+    expect(dateOnlyResult.isDateOnly).toBe(true);
+    expect(dateOnlyResult.formatted).toBe('25 December 2024');
+    
+    // Test datetime format  
+    mockMomentInstance.format.mockReturnValue('25 December 2024 2:30:00 PM');
+    const datetimeResult = parseDateWithType('2024-12-25 14:30:00');
+    expect(datetimeResult.isDateOnly).toBe(false);
+    expect(datetimeResult.formatted).toBe('25 December 2024 2:30:00 PM');
+  });
+
+  test('generateDateProperty should create correct AppleScript property', async () => {
+    const { generateDateProperty } = await import('./date.js');
+    const mockQuote = (str: string) => `"${str}"`;
+    
+    // Test date-only format
+    mockMomentInstance.format.mockReturnValue('25 December 2024');
+    const dateOnlyProperty = generateDateProperty('2024-12-25', mockQuote);
+    expect(dateOnlyProperty).toBe(', allday due date:date "25 December 2024"');
+    
+    // Test datetime format
+    mockMomentInstance.format.mockReturnValue('25 December 2024 2:30:00 PM');
+    const datetimeProperty = generateDateProperty('2024-12-25 14:30:00', mockQuote);
+    expect(datetimeProperty).toBe(', due date:date "25 December 2024 2:30:00 PM"');
   });
 });
