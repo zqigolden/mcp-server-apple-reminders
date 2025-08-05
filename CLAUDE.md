@@ -38,16 +38,18 @@ npm start         # Start MCP server
 |------|------------|---------|
 | `create_reminder` | title, dueDate?, list?, note?, url? | Create new reminder |
 | `list_reminders` | list?, showCompleted?, search?, dueWithin? | List reminders with filters |
-| `list_reminder_lists` | none | Get all reminder lists |
-| `update_reminder` | title, newTitle?, dueDate?, list?, note?, completed?, url? | Update existing reminder |
+| `list_reminder_lists` | createNew? | Get all reminder lists or create new list |
+| `update_reminder` | title, newTitle?, dueDate?, list?, note?, completed?, url?, batchOperation? | Update existing reminder or batch organize multiple reminders |
 | `delete_reminder` | title, list? | Delete reminder by title |
 | `move_reminder` | title, fromList?, toList | Move between lists |
 
 **Advanced Features:**
 - 7 pre-built prompt templates for workflow automation
+- Batch operations for organizing multiple reminders by priority, due date, category, or completion status
 - System-aware 24-hour/12-hour time detection
 - Intelligent date parsing with multiple format support
 - URL integration with reminder notes
+- Dynamic list creation and management
 
 ## Key Implementation Details
 
@@ -139,7 +141,8 @@ NODE_ENV=test npm test  # Test environment
 - URL handling integrated with notes field, not separate properties
 
 ### MCP Protocol Implementation
-- 5 core tools with comprehensive parameter validation
+- 6 core tools with comprehensive parameter validation
+- Batch operation support for organizing multiple reminders
 - Consistent error response format across all tools
 - Tool parameter validation using dual schema approach (Zod + ArkType)
 
