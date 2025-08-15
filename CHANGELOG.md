@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2025-08-15
+
+### Added
+
+- Comprehensive binary validation and security module for enhanced system protection
+- Unicode validation and handling for international character support
+- Enhanced security checks for binary path validation
+
+### Changed
+
+- **BREAKING**: Unified tool architecture from 6 tools to 2 action-based tools for improved usability
+- Streamlined API structure reduces complexity while maintaining full functionality
+- Enhanced async handling for system preferences
+- Optimized date-only implementation with improved architecture
+
+### Fixed
+
+- Resolved merge conflicts and build errors after refactor merge
+- Corrected AppleScript date format consistency issues
+- Fixed binary path discovery fallbacks
+
 ## [0.6.0] - 2025-08-05
 
 ### Added
@@ -150,7 +171,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic Apple Reminders integration
 - Foundation for macOS native reminder management
 
-[unreleased]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.6.0...HEAD
+[unreleased]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.5.0...v0.5.1
