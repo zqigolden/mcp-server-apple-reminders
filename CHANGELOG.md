@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2025-08-20
+
+### Added
+
+- Comprehensive permissions management system with proactive EventKit and AppleScript permission validation
+- Conditional subschemas for precise action-specific parameter validation using JSON Schema `allOf/if/then` constructs
+- 9 new utility modules following separation of concerns and SOLID principles
+- Repository pattern implementation for clean data access abstraction
+- Strategy pattern for pluggable reminder organization algorithms (priority, due date, category, completion status)
+- Builder pattern for reusable AppleScript generation
+- Centralized error handling with consistent response patterns
+- User-friendly permission guidance with system-specific troubleshooting instructions
+
+### Changed
+
+- **MAJOR REFACTORING**: Restructured entire codebase following SOLID principles and design patterns
+- All functions reduced to <20 lines (previously 100+ lines in some cases)
+- Eliminated 800+ lines of duplicated code across the application
+- Reduced cyclomatic complexity from 15+ to 3-5 in most functions
+- Consolidated permissions management from 4 separate files into 1 unified module
+- Enhanced tool validation with action-specific parameter requirements
+- Improved error messages with detailed validation feedback
+
+### Fixed
+
+- Swift permission checking deadlock by removing `exit()` calls before dispatch group cleanup
+- ES module import consistency by replacing `require()` with proper `import` statements
+- TypeScript compilation errors with proper null handling for optional parameters
+- Validation schema conflicts with intelligent list selection feature
+- Binary path resolution with enhanced fallback mechanisms
+
 ## [0.7.0] - 2025-08-15
 
 ### Added
@@ -171,7 +202,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic Apple Reminders integration
 - Foundation for macOS native reminder management
 
-[unreleased]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.0...HEAD
+[unreleased]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.5.1...v0.5.2
