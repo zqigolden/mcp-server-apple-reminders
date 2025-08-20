@@ -119,6 +119,55 @@ export const TOOLS: Tool[] = [
       },
       required: ["action"],
       additionalProperties: false,
+      allOf: [
+        // List action - no additional requirements (supports intelligent defaults)
+        // The handler will automatically select appropriate list if not specified
+        // Create action requirements  
+        {
+          if: {
+            properties: { action: { const: "create" } }
+          },
+          then: {
+            required: ["title"]
+          }
+        },
+        // Update action requirements
+        {
+          if: {
+            properties: { action: { const: "update" } }
+          },
+          then: {
+            required: ["title"]
+          }
+        },
+        // Delete action requirements
+        {
+          if: {
+            properties: { action: { const: "delete" } }
+          },
+          then: {
+            required: ["title"]
+          }
+        },
+        // Move action requirements
+        {
+          if: {
+            properties: { action: { const: "move" } }
+          },
+          then: {
+            required: ["title", "fromList", "toList"]
+          }
+        },
+        // Organize action requirements
+        {
+          if: {
+            properties: { action: { const: "organize" } }
+          },
+          then: {
+            required: ["strategy"]
+          }
+        }
+      ],
     },
   },
   {
@@ -142,6 +191,17 @@ export const TOOLS: Tool[] = [
       },
       required: ["action"],
       additionalProperties: false,
+      allOf: [
+        // Create action requirements for lists
+        {
+          if: {
+            properties: { action: { const: "create" } }
+          },
+          then: {
+            required: ["name"]
+          }
+        }
+      ],
     },
   },
 ];
