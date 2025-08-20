@@ -48,9 +48,7 @@ jest.mock('../utils/organizationStrategies.js', () => ({
 
 // Mock permissions module
 jest.mock('../utils/permissions.js', () => ({
-  permissionsManager: {
-    ensurePermissions: jest.fn()
-  }
+  ensurePermissions: jest.fn()
 }));
 
 // Mock error handling utilities

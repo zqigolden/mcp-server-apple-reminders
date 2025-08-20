@@ -4,7 +4,7 @@
  */
 
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { permissionsManager } from "../utils/permissions.js";
+import { ensurePermissions } from "../utils/permissions.js";
 import { reminderRepository, type CreateReminderData, type UpdateReminderData, type MoveReminderData } from "../utils/reminderRepository.js";
 import { OrganizationStrategyFactory, ReminderOrganizationService } from "../utils/organizationStrategies.js";
 import { ErrorResponseFactory, handleAsyncOperation, handleJsonAsyncOperation } from "../utils/errorHandling.js";
@@ -31,7 +31,7 @@ import {
 export async function handleCreateReminder(args: any): Promise<CallToolResult> {
   return handleAsyncOperation(
     async () => {
-      await permissionsManager.ensurePermissions();
+      await ensurePermissions();
       
       const { action: _ignored, ...rest } = args ?? {};
       const validatedArgs = validateInput(CreateReminderSchema, rest);
@@ -256,7 +256,7 @@ export async function handleMoveReminder(args: any): Promise<CallToolResult> {
 export async function handleListReminderLists(args?: any): Promise<CallToolResult> {
   return handleJsonAsyncOperation(
     async () => {
-      await permissionsManager.ensurePermissions();
+      await ensurePermissions();
       
       const cleaned = args && typeof args === 'object' 
         ? (() => { const { action: _ignored, ...rest } = args; return rest; })()
@@ -293,7 +293,7 @@ export async function handleListReminderLists(args?: any): Promise<CallToolResul
 export async function handleListReminders(args: any): Promise<CallToolResult> {
   return handleJsonAsyncOperation(
     async () => {
-      await permissionsManager.ensurePermissions();
+      await ensurePermissions();
       
       const { action: _ignored, ...rest } = args ?? {};
       const validatedArgs = validateInput(ListRemindersSchema, rest);
