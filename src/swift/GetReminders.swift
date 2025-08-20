@@ -122,21 +122,17 @@ if checkPermissions {
     manager.requestAccess { granted, error in
         if granted {
             print("✅ EventKit permissions granted")
-            exit(0)
         } else {
             if let error = error {
                 print("❌ EventKit permission denied: \(error.localizedDescription)")
             } else {
                 print("❌ EventKit permission denied")
             }
-            exit(1)
         }
         group.leave()
     }
     group.wait()
-    // Keep the program running for a moment to allow async operations to complete
-    RunLoop.main.run(until: Date(timeIntervalSinceNow: 1))
-    exit(1)
+    exit(0)
 }
 
 // Request access to reminders

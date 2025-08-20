@@ -4,7 +4,7 @@
  */
 
 import { quoteAppleScriptString, createRemindersScript } from "./applescript.js";
-import { generateDateProperty } from "./date.js";
+import { generateDateProperty, parseDateWithType } from "./date.js";
 
 /**
  * Interface for reminder creation properties
@@ -184,7 +184,8 @@ export class ReminderUpdateScriptBuilder {
   }
   
   private buildDateUpdate(): string {
-    const { parseDateWithType } = require('./date.js');
+    if (!this.properties.dueDate) return '';
+    
     const { formatted, isDateOnly } = parseDateWithType(this.properties.dueDate);
     const dateType = isDateOnly ? 'allday due date' : 'due date';
     return `  set ${dateType} of targetReminder to date ${quoteAppleScriptString(formatted)}`;
