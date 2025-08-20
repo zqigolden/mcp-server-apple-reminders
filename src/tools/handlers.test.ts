@@ -18,6 +18,102 @@ jest.mock('../utils/applescript.js', () => ({
   quoteAppleScriptString: jest.fn((str: string) => `"${str.replace(/"/g, '\\"')}"`)
 }));
 
+// Mock the new repository module
+jest.mock('../utils/reminderRepository.js', () => ({
+  reminderRepository: {
+    createReminder: jest.fn(),
+    updateReminder: jest.fn(),
+    deleteReminder: jest.fn(),
+    moveReminder: jest.fn(),
+    findReminders: jest.fn(),
+    findAllLists: jest.fn(),
+    createReminderList: jest.fn(),
+    listExists: jest.fn()
+  }
+}));
+
+// Mock organization strategies
+jest.mock('../utils/organizationStrategies.js', () => ({
+  OrganizationStrategyFactory: {
+    createStrategy: jest.fn(() => ({
+      getStrategyName: () => 'test',
+      categorizeReminder: () => 'Test Category'
+    }))
+  },
+  ReminderOrganizationService: jest.fn().mockImplementation(() => ({
+    organizeReminders: jest.fn(() => ({ 'Test Category': [] })),
+    getStrategyName: jest.fn(() => 'test')
+  }))
+}));
+
+// Mock permissions module
+jest.mock('../utils/permissions.js', () => ({
+  permissionsManager: {
+    ensurePermissions: jest.fn()
+  }
+}));
+
+// Mock error handling utilities
+jest.mock('../utils/errorHandling.js', () => ({
+  ErrorResponseFactory: {
+    createSuccessResponse: jest.fn((message) => ({
+      content: [{ type: "text", text: message }],
+      isError: false
+    })),
+    createErrorResponse: jest.fn((operation, error) => ({
+      content: [{ type: "text", text: `Failed to ${operation}` }],
+      isError: true
+    })),
+    createJsonSuccessResponse: jest.fn((data) => ({
+      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      isError: false
+    })),
+    createJsonErrorResponse: jest.fn((operation, error) => ({
+      content: [{ type: "text", text: JSON.stringify({ error: `Failed to ${operation}`, isError: true }, null, 2) }],
+      isError: true
+    }))
+  },
+  handleAsyncOperation: jest.fn(async (...args: any[]) => {
+    const [operation, operationName, responseFactory] = args;
+    try {
+      const result = await operation();
+      return responseFactory ? responseFactory(result) : { content: [{ type: "text", text: String(result) }], isError: false };
+    } catch (error) {
+      return { content: [{ type: "text", text: `Failed to ${operationName}` }], isError: true };
+    }
+  }),
+  handleJsonAsyncOperation: jest.fn(async (...args: any[]) => {
+    const [operation, operationName] = args;
+    try {
+      const result = await operation();
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }], isError: false };
+    } catch (error) {
+      return { content: [{ type: "text", text: JSON.stringify({ error: `Failed to ${operationName}`, isError: true }, null, 2) }], isError: true };
+    }
+  })
+}));
+
+// Mock constants
+jest.mock('../utils/constants.js', () => ({
+  MESSAGES: {
+    SUCCESS: {
+      REMINDER_CREATED: (title: string, hasNotes: boolean) => `Created ${title}${hasNotes ? ' with notes' : ''}`,
+      REMINDER_UPDATED: (title: string) => `Updated ${title}`,
+      REMINDER_DELETED: (title: string) => `Deleted ${title}`,
+      REMINDER_MOVED: (title: string, from: string, to: string) => `Moved ${title} from ${from} to ${to}`,
+      LIST_CREATED: (name: string) => `Created list ${name}`
+    }
+  },
+  JSON_FORMATTING: {
+    INDENT_SPACES: 2
+  }
+}));
+
+// Mock date filtering utilities
+jest.mock('../utils/dateFiltering.js', () => ({
+  applyReminderFilters: jest.fn((reminders, filters) => reminders)
+}));
+
 // Mock the date parser
 jest.mock('../utils/date.js', () => ({
   parseDate: jest.fn((dateStr: string) => `${dateStr} parsed`),
@@ -92,6 +188,100 @@ describe('handleListReminders', () => {
         showCompleted: expect.any(Boolean)
       })
     }));
+  });
+
+  test('should use default list "Reminders" when only action is provided', async () => {
+    const mockReminders: Reminder[] = [
+      {
+        title: 'Default List Task',
+        list: 'Reminders',
+        isCompleted: false
+      },
+      {
+        title: 'Other List Task',
+        list: 'Work',
+        isCompleted: false
+      }
+    ];
+
+    mockGetReminders.mockResolvedValue({
+      reminders: mockReminders,
+      lists: []
+    });
+
+    const result = await handleListReminders({});
+    
+    validateJsonResponse(result);
+    const parsedJson = JSON.parse(result.content[0].text as string);
+    
+    expect(parsedJson.reminders).toHaveLength(1);
+    expect(parsedJson.reminders[0]).toEqual({
+      title: 'Default List Task',
+      list: 'Reminders',
+      isCompleted: false,
+      dueDate: null,
+      notes: null,
+    });
+    expect(parsedJson.filter.list).toBe('Reminders');
+    expect(parsedJson.filter.showCompleted).toBe(false);
+  });
+
+  test('should intelligently choose first available list when "Reminders" not found', async () => {
+    const mockReminders: Reminder[] = [
+      {
+        title: 'Work Task',
+        list: 'Work',
+        isCompleted: false
+      },
+      {
+        title: 'Personal Task',
+        list: 'Personal',
+        isCompleted: false
+      }
+    ];
+
+    mockGetReminders.mockResolvedValue({
+      reminders: mockReminders,
+      lists: []
+    });
+
+    const result = await handleListReminders({});
+    
+    validateJsonResponse(result);
+    const parsedJson = JSON.parse(result.content[0].text as string);
+    
+    expect(parsedJson.reminders).toHaveLength(1);
+    expect(parsedJson.reminders[0].list).toBe('Work'); // First available list
+    expect(parsedJson.filter.list).toBe('Work');
+  });
+
+  test('should use Chinese default list name when available', async () => {
+    const mockReminders: Reminder[] = [
+      {
+        title: 'Chinese Task',
+        list: '提醒事项',
+        isCompleted: false
+      },
+      {
+        title: 'Other Task',
+        list: 'Work',
+        isCompleted: false
+      }
+    ];
+
+    mockGetReminders.mockResolvedValue({
+      reminders: mockReminders,
+      lists: []
+    });
+
+    const result = await handleListReminders({});
+    
+    validateJsonResponse(result);
+    const parsedJson = JSON.parse(result.content[0].text as string);
+    
+    expect(parsedJson.reminders).toHaveLength(1);
+    expect(parsedJson.reminders[0].list).toBe('提醒事项');
+    expect(parsedJson.filter.list).toBe('提醒事项');
   });
 
   test('should return valid JSON with filtered reminders', async () => {

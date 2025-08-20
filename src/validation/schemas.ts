@@ -64,7 +64,10 @@ export const CreateReminderSchema = z.object({
 });
 
 export const ListRemindersSchema = z.object({
-  list: SafeListNameSchema,
+  list: z.string()
+    .min(1, "List parameter is required")
+    .max(MAX_LIST_NAME_LENGTH, `List name cannot exceed ${MAX_LIST_NAME_LENGTH} characters`)
+    .regex(SAFE_TEXT_PATTERN, "List name contains invalid characters"),
   showCompleted: z.boolean().optional().default(false),
   search: SafeSearchSchema,
   dueWithin: z.enum(["today", "tomorrow", "this-week", "overdue", "no-date"]).optional(),

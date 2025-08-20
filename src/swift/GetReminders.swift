@@ -48,24 +48,11 @@ class RemindersManager {
         let calendars = getAllReminderLists()
         let predicate = eventStore.predicateForReminders(in: calendars)
         
-        print("DEBUG: getAllReminders called with showCompleted=\(showCompleted)")
-        
         eventStore.fetchReminders(matching: predicate) { reminders in
             if let reminders = reminders {
-                print("DEBUG: Total reminders fetched: \(reminders.count)")
-                
                 let filteredReminders = showCompleted ? reminders : reminders.filter { !$0.isCompleted }
-                
-                print("DEBUG: Reminders after completion filtering: \(filteredReminders.count)")
-                print("DEBUG: Filtered reminders details:")
-                for reminder in filteredReminders {
-                    print("DEBUG: - Title: \(reminder.title ?? "No Title")")
-                    print("DEBUG:   isCompleted: \(reminder.isCompleted)")
-                }
-                
                 completion(filteredReminders, nil)
             } else {
-                print("DEBUG: No reminders found or error occurred")
                 completion(nil, nil)
             }
         }
@@ -122,25 +109,41 @@ let manager = RemindersManager()
 
 // Parse command line arguments
 let args = CommandLine.arguments
-print("DEBUG: Command line arguments: \(args)")
 let showCompleted = args.contains("--show-completed")
+let checkPermissions = args.contains("--check-permissions")
 let listName = args.first(where: { $0.hasPrefix("--list=") })?.replacingOccurrences(of: "--list=", with: "")
-print("DEBUG: Show completed tasks: \(showCompleted)")
-if let listName = listName {
-    print("DEBUG: Target list: \(listName)")
-}
 
 // Create a dispatch group to wait for async operations
 let group = DispatchGroup()
 group.enter()
 
+// Handle permission check mode
+if checkPermissions {
+    manager.requestAccess { granted, error in
+        if granted {
+            print("✅ EventKit permissions granted")
+            exit(0)
+        } else {
+            if let error = error {
+                print("❌ EventKit permission denied: \(error.localizedDescription)")
+            } else {
+                print("❌ EventKit permission denied")
+            }
+            exit(1)
+        }
+        group.leave()
+    }
+    group.wait()
+    // Keep the program running for a moment to allow async operations to complete
+    RunLoop.main.run(until: Date(timeIntervalSinceNow: 1))
+    exit(1)
+}
+
 // Request access to reminders
 manager.requestAccess { granted, error in
     if granted {
-        print("DEBUG: Access to reminders granted!")
-        
         // Print all reminder lists
-        print("\n=== REMINDER LISTS ===")
+        print("=== REMINDER LISTS ===")
         let lists = manager.getAllReminderLists()
         for (index, list) in lists.enumerated() {
             print("\(index + 1). \(list.title)")
@@ -150,15 +153,11 @@ manager.requestAccess { granted, error in
         group.enter()
         manager.getAllReminders(showCompleted: showCompleted) { reminders, error in
             if let error = error {
-                print("DEBUG: Error fetching reminders: \(error.localizedDescription)")
+                print("Error fetching reminders: \(error.localizedDescription)")
             } else if let reminders = reminders {
                 print("\n=== ALL REMINDERS ===")
-                print("DEBUG: Total reminders before filtering: \(reminders.count)")
-                print("DEBUG: showCompleted parameter value: \(showCompleted)")
                 
                 for reminder in reminders {
-                    print("DEBUG: Processing reminder: \(reminder.title ?? "No Title")")
-                    print("DEBUG: Completion status: \(reminder.isCompleted)")
                     manager.printReminderDetails(reminder: reminder)
                 }
             }
@@ -166,9 +165,9 @@ manager.requestAccess { granted, error in
         }
     } else {
         if let error = error {
-            print("DEBUG: Failed to get access to reminders: \(error.localizedDescription)")
+            print("Failed to get access to reminders: \(error.localizedDescription)")
         } else {
-            print("DEBUG: Failed to get access to reminders. Permission denied.")
+            print("Failed to get access to reminders. Permission denied.")
         }
     }
     group.leave()

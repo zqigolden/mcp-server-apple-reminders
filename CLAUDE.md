@@ -34,19 +34,24 @@ npm start         # Start MCP server
 
 ## MCP Tools Reference
 
-| Tool | Parameters | Purpose |
-|------|------------|---------|
-| `create_reminder` | title, dueDate?, list?, note?, url? | Create new reminder |
-| `list_reminders` | list?, showCompleted?, search?, dueWithin? | List reminders with filters |
-| `list_reminder_lists` | createNew? | Get all reminder lists or create new list |
-| `update_reminder` | title, newTitle?, dueDate?, list?, note?, completed?, url?, batchOperation? | Update existing reminder or batch organize multiple reminders |
-| `delete_reminder` | title, list? | Delete reminder by title |
-| `move_reminder` | title, fromList?, toList | Move between lists |
+**Current Implementation: Unified Tool Interface**
+
+| Tool | Action | Parameters | Purpose |
+|------|--------|------------|---------|
+| `reminders` | list | list?, showCompleted?, search?, dueWithin? | List reminders with filters (defaults to "Reminders" list when no params) |
+| `reminders` | create | title, dueDate?, list?, note?, url? | Create new reminder |
+| `reminders` | update | title, newTitle?, dueDate?, list?, note?, completed?, url? | Update existing reminder |
+| `reminders` | delete | title, list? | Delete reminder by title |
+| `reminders` | move | title, fromList?, toList | Move between lists |
+| `reminders` | organize | strategy, sourceList?, createLists? | Batch organize by priority/due_date/category/completion_status |
+| `lists` | list | - | Get all reminder lists |
+| `lists` | create | name | Create new reminder list |
 
 **Advanced Features:**
-- 7 pre-built prompt templates for workflow automation
+- Unified action-based tool interface for simplified MCP integration
+- **Intelligent defaults**: `{"action": "list"}` automatically shows uncompleted reminders from the most appropriate list (tries "Reminders", "提醒事项", etc., or uses first available list)
 - Batch operations for organizing multiple reminders by priority, due date, category, or completion status
-- System-aware 24-hour/12-hour time detection
+- System-aware 24-hour/12-hour time detection with async initialization
 - Intelligent date parsing with multiple format support
 - URL integration with reminder notes
 - Dynamic list creation and management
@@ -56,9 +61,10 @@ npm start         # Start MCP server
 ### Date Handling (Moment.js)
 - **Input formats**: ISO_8601, 'YYYY-MM-DD', 'MM/DD/YYYY', 'YYYY-MM-DD HH:mm:ss'
 - **AppleScript output**: "MMMM D, YYYY HH:mm:ss" (English month names, locale-independent)
-- **System integration**: Auto-detects 24-hour vs 12-hour time preference with caching
-- **Error handling**: Detailed error messages with format examples and supported types
+- **System integration**: Async initialization of 24-hour vs 12-hour time preference with safe defaults
+- **Error handling**: Detailed error messages with format examples and supported types  
 - **Caching**: System preferences cached for performance, with test-only cache clearing
+- **TimePreferenceManager**: Non-blocking async initialization to avoid startup delays
 
 ### Error Handling
 - **JSON responses**: `{isError: boolean, message: string, data?: any}`
@@ -70,8 +76,10 @@ npm start         # Start MCP server
 ### File Locations
 - **Entry**: `src/index.ts` (package.json auto-discovery)
 - **MCP Server**: `src/server/` (@modelcontextprotocol/sdk)
-- **Tools**: `src/tools/handlers.ts` (tool implementations)
-- **Utils**: `src/utils/` (reminders, AppleScript, date, logger)
+- **Tools**: `src/tools/` (definitions.ts + handlers.ts for unified tool implementation)
+- **Utils**: `src/utils/` (reminders, AppleScript, date, logger, binaryValidator, moduleHelpers)
+- **Validation**: `src/validation/schemas.ts` (Zod + ArkType schemas)
+- **Types**: `src/types/index.ts` (TypeScript definitions)
 - **Tests**: `src/**/*.test.ts` (Jest + ts-jest)
 - **Swift**: `src/swift/GetReminders.swift` (EventKit integration)
 
@@ -141,10 +149,11 @@ NODE_ENV=test npm test  # Test environment
 - URL handling integrated with notes field, not separate properties
 
 ### MCP Protocol Implementation
-- 6 core tools with comprehensive parameter validation
+- 2 unified tools (`reminders` and `lists`) with action-based operations
 - Batch operation support for organizing multiple reminders
 - Consistent error response format across all tools
 - Tool parameter validation using dual schema approach (Zod + ArkType)
+- Action-based design reduces tool complexity and improves MCP client compatibility
 
 ### Environment Considerations
 - macOS-only due to EventKit and AppleScript dependencies

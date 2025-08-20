@@ -14,32 +14,45 @@ const DATETIME_FORMAT_12_HOUR = "MMMM D, YYYY h:mm:ss A" as const;
 const DATETIME_FORMAT_24_HOUR = "MMMM D, YYYY HH:mm:ss" as const;
 
 /**
- * Simplified time preference manager
+ * Time preference management using functional composition
  */
-class TimePreferenceManager {
-  private static cache?: boolean;
-  
-  static get24HourPreference(): boolean {
-    if (this.cache === undefined) {
-      this.cache = false; // Safe default
-      this.initializeAsync(); // Non-blocking async init
-    }
-    return this.cache;
+type TimePreferenceState = {
+  cache?: boolean;
+};
+
+const timePreferenceState: TimePreferenceState = {};
+
+/**
+ * Gets the 24-hour time preference with lazy initialization
+ */
+function get24HourPreference(): boolean {
+  if (timePreferenceState.cache === undefined) {
+    timePreferenceState.cache = false; // Safe default
+    initializeTimePreferenceAsync(); // Non-blocking async init
   }
-  
-  private static async initializeAsync(): Promise<void> {
-    try {
-      const result = await safeSystemCommand('defaults', ['read', '-g', 'AppleICUForce24HourTime']);
-      this.cache = result === '1';
-      debugLog(`Time preference: ${this.cache ? '24-hour' : '12-hour'}`);
-    } catch (error) {
-      this.cache = false;
-      debugLog(`Using 12-hour default: ${(error as Error).message}`);
-    }
+  return timePreferenceState.cache;
+}
+
+/**
+ * Initializes time preference asynchronously
+ */
+async function initializeTimePreferenceAsync(): Promise<void> {
+  try {
+    const result = await safeSystemCommand('defaults', ['read', '-g', 'AppleICUForce24HourTime']);
+    timePreferenceState.cache = result === '1';
+    debugLog(`Time preference: ${timePreferenceState.cache ? '24-hour' : '12-hour'}`);
+  } catch (error) {
+    timePreferenceState.cache = false;
+    debugLog(`Using 12-hour default: ${(error as Error).message}`);
   }
-  
-  static clearCache(): void {
-    if (process.env.NODE_ENV === 'test') this.cache = undefined;
+}
+
+/**
+ * Clears the time preference cache (for testing)
+ */
+function clearTimePreferenceCache(): void {
+  if (process.env.NODE_ENV === 'test') {
+    timePreferenceState.cache = undefined;
   }
 }
 
@@ -47,9 +60,7 @@ class TimePreferenceManager {
  * Clear the cached system time preference for testing purposes only.
  * @internal
  */
-export function clearTimePreferenceCache(): void {
-  TimePreferenceManager.clearCache();
-}
+export { clearTimePreferenceCache };
 
 /**
  * Safely executes system command to read preferences
@@ -181,7 +192,7 @@ function formatDate(dateStr: string, isDateOnly: boolean): string {
     return englishMoment.format(DATE_ONLY_FORMAT);
   }
   
-  const use24Hour = TimePreferenceManager.get24HourPreference();
+  const use24Hour = get24HourPreference();
   const format = use24Hour ? DATETIME_FORMAT_24_HOUR : DATETIME_FORMAT_12_HOUR;
   return englishMoment.format(format);
 }
