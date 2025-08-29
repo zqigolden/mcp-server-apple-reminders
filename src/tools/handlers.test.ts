@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, jest, test } from '@jest/globals';
+// 使用全局 Jest 函数，避免额外依赖
 import type { Reminder, ReminderList } from '../types/index.js';
 import { remindersManager } from '../utils/reminders.js';
 import { 

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2] - 2025-01-13
+
+### Changed
+
+- **MAJOR REFACTORING**: Restructured entire codebase following SOLID principles and design patterns
+- All functions reduced to <20 lines (previously 100+ lines in some cases)
+- Eliminated 800+ lines of duplicated code across the application
+- Reduced cyclomatic complexity from 15+ to 3-5 in most functions
+- Consolidated permissions management from 4 separate files into 1 unified module
+- Enhanced tool validation with action-specific parameter requirements
+- Improved error messages with detailed validation feedback
+- **Optimization**: Removed unnecessary `@jest/globals` dependency, reducing package size and installation time
+- **Refactor**: Simplified test file imports by using global Jest functions
+- **Performance**: Reduced development dependencies count, improving project build efficiency
+
+### Fixed
+
+- Swift permission checking deadlock by removing `exit()` calls before dispatch group cleanup
+- ES module import consistency by replacing `require()` with proper `import` statements
+- TypeScript compilation errors with proper null handling for optional parameters
+- Validation schema conflicts with intelligent list selection feature
+- Binary path resolution with enhanced fallback mechanisms
+- Fixed TypeScript compilation errors in build process, ensuring all test files work properly
+
 ## [0.7.1] - 2025-08-20
 
 ### Added
@@ -19,24 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Builder pattern for reusable AppleScript generation
 - Centralized error handling with consistent response patterns
 - User-friendly permission guidance with system-specific troubleshooting instructions
-
-### Changed
-
-- **MAJOR REFACTORING**: Restructured entire codebase following SOLID principles and design patterns
-- All functions reduced to <20 lines (previously 100+ lines in some cases)
-- Eliminated 800+ lines of duplicated code across the application
-- Reduced cyclomatic complexity from 15+ to 3-5 in most functions
-- Consolidated permissions management from 4 separate files into 1 unified module
-- Enhanced tool validation with action-specific parameter requirements
-- Improved error messages with detailed validation feedback
-
-### Fixed
-
-- Swift permission checking deadlock by removing `exit()` calls before dispatch group cleanup
-- ES module import consistency by replacing `require()` with proper `import` statements
-- TypeScript compilation errors with proper null handling for optional parameters
-- Validation schema conflicts with intelligent list selection feature
-- Binary path resolution with enhanced fallback mechanisms
 
 ## [0.7.0] - 2025-08-15
 
@@ -202,7 +208,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic Apple Reminders integration
 - Foundation for macOS native reminder management
 
-[unreleased]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.1...HEAD
+[unreleased]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.2...HEAD
+[0.7.2]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.5.2...v0.6.0

@@ -160,6 +160,9 @@ dist
 
 .vscode-test
 
+# Swift binaries (generated files)
+src/swift/bin/
+
 # yarn v2
 
 .yarn/cache

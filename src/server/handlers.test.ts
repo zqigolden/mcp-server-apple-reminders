@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, jest, test } from '@jest/globals';
+// 使用全局 Jest 函数，避免额外依赖
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   ListPromptsRequestSchema,
@@ -39,7 +39,7 @@ describe('Server Handlers', () => {
       
       // Check specific handlers
       const calls = mockServer.setRequestHandler.mock.calls;
-      const schemas = calls.map(call => call[0]);
+      const schemas = calls.map((call) => call[0]);
       
       expect(schemas).toContain(ListPromptsRequestSchema);
       expect(schemas).toContain(GetPromptRequestSchema);
@@ -55,9 +55,9 @@ describe('Server Handlers', () => {
       
       // Extract handlers from mock calls
       const calls = mockServer.setRequestHandler.mock.calls;
-      
-      const listPromptsCall = calls.find(call => call[0] === ListPromptsRequestSchema);
-      const getPromptCall = calls.find(call => call[0] === GetPromptRequestSchema);
+
+      const listPromptsCall = calls.find((call) => call[0] === ListPromptsRequestSchema);
+      const getPromptCall = calls.find((call) => call[0] === GetPromptRequestSchema);
       
       listPromptsHandler = listPromptsCall?.[1];
       getPromptHandler = getPromptCall?.[1];
