@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2] - 2025-01-13
+
+### Changed
+
+- **Optimization**: Removed unnecessary `@jest/globals` dependency, reducing package size and installation time
+- **Refactor**: Simplified test file imports by using global Jest functions
+- **Performance**: Reduced development dependencies count, improving project build efficiency
+
+### Fixed
+
+- Fixed TypeScript compilation errors in build process, ensuring all test files work properly
+
 ## [0.7.0] - 2025-08-15
 
 ### Added
@@ -171,7 +183,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic Apple Reminders integration
 - Foundation for macOS native reminder management
 
-[unreleased]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.0...HEAD
+[unreleased]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.2...HEAD
+[0.7.2]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.0...v0.7.2
 [0.7.0]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.5.1...v0.5.2
