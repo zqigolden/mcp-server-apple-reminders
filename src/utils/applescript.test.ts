@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, jest, test } from '@jest/globals';
+// 使用全局 Jest 函数，避免额外依赖
 import { execSync } from 'child_process';
 import { executeAppleScript, createRemindersScript, quoteAppleScriptString } from './applescript.js';
 import { debugLog } from './logger.js';

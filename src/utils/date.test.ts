@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, jest } from '@jest/globals';
+// 使用全局 Jest 函数，避免额外依赖
 import moment from 'moment';
 import { spawn } from 'child_process';
 import { EventEmitter } from 'events';
