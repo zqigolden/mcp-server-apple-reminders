@@ -11,26 +11,26 @@ export class Logger {
    * Log an informational message
    * @param args - Arguments to log
    */
-  info(...args: any[]): void {
-    console.log("[INFO]", ...args);
+  info(...args: unknown[]): void {
+    console.log('[INFO]', ...args);
   }
-  
+
   /**
    * Log a debug message
    * @param args - Arguments to log
    */
-  debug(...args: any[]): void {
-    console.error("[DEBUG]", ...args);
+  debug(...args: unknown[]): void {
+    console.error('[DEBUG]', ...args);
   }
-  
+
   /**
    * Log a warning message
    * @param args - Arguments to log
    */
-  warn(...args: any[]): void {
-    console.warn("[WARN]", ...args);
+  warn(...args: unknown[]): void {
+    console.warn('[WARN]', ...args);
   }
-  
+
   /**
    * Log an error message
    * @param message - Error message
@@ -38,7 +38,7 @@ export class Logger {
    */
   error(message: string, error?: unknown): void {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("[ERROR]", `${message}${error ? ': ' + errorMessage : ''}`);
+    console.error('[ERROR]', `${message}${error ? `: ${errorMessage}` : ''}`);
   }
 }
 
@@ -49,7 +49,7 @@ export const logger = new Logger();
  * Writes debug messages to stderr (legacy function)
  * @param args - Arguments to log
  */
-export function debugLog(...args: any[]): void {
+export function debugLog(...args: unknown[]): void {
   logger.debug(...args);
 }
 
@@ -60,4 +60,4 @@ export function debugLog(...args: any[]): void {
  */
 export function logError(message: string, error?: unknown): void {
   logger.error(message, error);
-} 
+}

@@ -3,8 +3,11 @@
  * Simplified AppleScript builders for reminder operations
  */
 
-import { quoteAppleScriptString, createRemindersScript } from "./applescript.js";
-import { generateDateProperty, parseDateWithType } from "./date.js";
+import {
+  createRemindersScript,
+  quoteAppleScriptString,
+} from './applescript.js';
+import { generateDateProperty, parseDateWithType } from './date.js';
 
 interface ReminderProperties {
   title: string;
@@ -38,12 +41,17 @@ export class ReminderCreationBuilder {
   build(): string {
     const listSelector = this.properties.list
       ? `set targetList to list ${quoteAppleScriptString(this.properties.list)}`
-      : "set targetList to default list";
+      : 'set targetList to default list';
 
     const props = [`name:${quoteAppleScriptString(this.properties.title)}`];
 
     if (this.properties.dueDate) {
-      props.push(generateDateProperty(this.properties.dueDate, quoteAppleScriptString).slice(1));
+      props.push(
+        generateDateProperty(
+          this.properties.dueDate,
+          quoteAppleScriptString,
+        ).slice(1),
+      );
     }
 
     const combinedNote = this.combineNoteAndUrl();
@@ -52,16 +60,19 @@ export class ReminderCreationBuilder {
     }
 
     const reminderProps = `set reminderProps to {${props.join(', ')}}`;
-    const creationCommand = "set newReminder to make new reminder at end of targetList with properties reminderProps";
+    const creationCommand =
+      'set newReminder to make new reminder at end of targetList with properties reminderProps';
 
-    return createRemindersScript([listSelector, reminderProps, creationCommand].join('\n'));
+    return createRemindersScript(
+      [listSelector, reminderProps, creationCommand].join('\n'),
+    );
   }
 
   private combineNoteAndUrl(): string {
     const { note, url } = this.properties;
-    if (!note && !url) return "";
-    if (!note) return url!;
-    if (!url) return note;
+    if (!note && !url) return '';
+    if (!note && url) return url;
+    if (!url && note) return note;
     return `${note}\n\n${url}`;
   }
 }
@@ -71,33 +82,34 @@ export class ReminderCreationBuilder {
  */
 export class ReminderTargetBuilder {
   private target: ReminderTarget;
-  
+
   constructor(target: ReminderTarget) {
     this.target = target;
   }
-  
+
   /**
    * Builds the script to find and select a reminder
    */
   buildTargetSelector(): string {
-    const listSelector = this.target.list 
+    const listSelector = this.target.list
       ? `set targetList to list ${quoteAppleScriptString(this.target.list)}\nset targetReminders to reminders of targetList`
       : 'set targetReminders to every reminder';
-      
+
     return `${listSelector} whose name is ${quoteAppleScriptString(this.target.title)}`;
   }
-  
+
   /**
    * Builds validation check for reminder existence
    */
   buildValidationCheck(customErrorMessage?: string): string {
-    const errorMessage = customErrorMessage || `Reminder not found: ${this.target.title}`;
-    
+    const errorMessage =
+      customErrorMessage || `Reminder not found: ${this.target.title}`;
+
     return [
       'if (count of targetReminders) is 0 then',
       `  error ${quoteAppleScriptString(errorMessage)}`,
       'else',
-      '  set targetReminder to first item of targetReminders'
+      '  set targetReminder to first item of targetReminders',
     ].join('\n');
   }
 }
@@ -108,15 +120,15 @@ export class ReminderTargetBuilder {
 export class ReminderUpdateScriptBuilder {
   private properties: ReminderUpdateProperties;
   private targetBuilder: ReminderTargetBuilder;
-  
+
   constructor(properties: ReminderUpdateProperties) {
     this.properties = properties;
     this.targetBuilder = new ReminderTargetBuilder({
       title: properties.title,
-      list: properties.list
+      list: properties.list,
     });
   }
-  
+
   /**
    * Builds the complete update script
    */
@@ -125,68 +137,76 @@ export class ReminderUpdateScriptBuilder {
       this.targetBuilder.buildTargetSelector(),
       this.targetBuilder.buildValidationCheck(),
       this.buildPropertyUpdates(),
-      'end if'
+      'end if',
     ];
-    
+
     return createRemindersScript(scriptParts.join('\n'));
   }
-  
+
   private buildPropertyUpdates(): string {
     const updates: string[] = [];
-    
+
     if (this.properties.newTitle) {
-      updates.push(`  set name of targetReminder to ${quoteAppleScriptString(this.properties.newTitle)}`);
+      updates.push(
+        `  set name of targetReminder to ${quoteAppleScriptString(this.properties.newTitle)}`,
+      );
     }
-    
+
     if (this.properties.dueDate) {
       updates.push(this.buildDateUpdate());
     }
-    
+
     if (this.shouldUpdateNotes()) {
       updates.push(this.buildNotesUpdate());
     }
-    
+
     if (this.properties.completed !== undefined) {
-      updates.push(`  set completed of targetReminder to ${this.properties.completed}`);
+      updates.push(
+        `  set completed of targetReminder to ${this.properties.completed}`,
+      );
     }
-    
+
     return updates.join('\n');
   }
-  
+
   private buildDateUpdate(): string {
     if (!this.properties.dueDate) return '';
-    
-    const { formatted, isDateOnly } = parseDateWithType(this.properties.dueDate);
+
+    const { formatted, isDateOnly } = parseDateWithType(
+      this.properties.dueDate,
+    );
     const dateType = isDateOnly ? 'allday due date' : 'due date';
     return `  set ${dateType} of targetReminder to date ${quoteAppleScriptString(formatted)}`;
   }
-  
+
   private shouldUpdateNotes(): boolean {
-    return this.properties.note !== undefined || this.properties.url !== undefined;
+    return (
+      this.properties.note !== undefined || this.properties.url !== undefined
+    );
   }
-  
+
   private buildNotesUpdate(): string {
     const finalNote = this.combineNoteAndUrl();
-    
+
     if (finalNote !== undefined) {
       return `  set body of targetReminder to ${quoteAppleScriptString(finalNote)}`;
     }
-    
+
     // Special case: append URL to existing body
     if (this.properties.url && this.properties.note === undefined) {
       return [
         '  set currentBody to body of targetReminder',
         '  if currentBody is missing value then set currentBody to ""',
-        `  set body of targetReminder to currentBody & ${quoteAppleScriptString(`URL: ${this.properties.url}`)}`
+        `  set body of targetReminder to currentBody & ${quoteAppleScriptString(`URL: ${this.properties.url}`)}`,
       ].join('\n');
     }
-    
+
     return '';
   }
-  
+
   private combineNoteAndUrl(): string | undefined {
     const { note, url } = this.properties;
-    
+
     if (!url && note === undefined) return undefined;
     if (!url) return note;
     if (note === undefined) return undefined; // Special case for URL append
@@ -200,22 +220,20 @@ export class ReminderUpdateScriptBuilder {
  * Builder for AppleScript reminder deletion commands
  */
 export class ReminderDeletionBuilder {
-  private target: ReminderTarget;
   private targetBuilder: ReminderTargetBuilder;
-  
+
   constructor(target: ReminderTarget) {
-    this.target = target;
     this.targetBuilder = new ReminderTargetBuilder(target);
   }
-  
+
   build(): string {
     const scriptParts = [
       this.targetBuilder.buildTargetSelector(),
       this.targetBuilder.buildValidationCheck(),
       '  delete first item of targetReminders',
-      'end if'
+      'end if',
     ];
-    
+
     return createRemindersScript(scriptParts.join('\n'));
   }
 }
@@ -227,13 +245,13 @@ export class ReminderMoveBuilder {
   private title: string;
   private fromList: string;
   private toList: string;
-  
+
   constructor(title: string, fromList: string, toList: string) {
     this.title = title;
     this.fromList = fromList;
     this.toList = toList;
   }
-  
+
   build(): string {
     const scriptParts = [
       `set sourceList to list ${quoteAppleScriptString(this.fromList)}`,
@@ -244,9 +262,9 @@ export class ReminderMoveBuilder {
       'else',
       '  set targetReminder to first item of targetReminders',
       '  move targetReminder to destList',
-      'end if'
+      'end if',
     ];
-    
+
     return createRemindersScript(scriptParts.join('\n'));
   }
 }
@@ -256,11 +274,11 @@ export class ReminderMoveBuilder {
  */
 export class ReminderListCreationBuilder {
   private name: string;
-  
+
   constructor(name: string) {
     this.name = name;
   }
-  
+
   build(): string {
     const scriptBody = `set newList to make new list with properties {name:${quoteAppleScriptString(this.name)}}`;
     return createRemindersScript(scriptBody);

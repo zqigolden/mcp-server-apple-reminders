@@ -3,12 +3,17 @@
  * Reusable utilities for filtering reminders by date criteria
  */
 
-import type { Reminder } from "../types/index.js";
+import type { Reminder } from '../types/index.js';
 
 /**
  * Date range filters for reminders
  */
-export type DateFilter = "today" | "tomorrow" | "this-week" | "overdue" | "no-date";
+export type DateFilter =
+  | 'today'
+  | 'tomorrow'
+  | 'this-week'
+  | 'overdue'
+  | 'no-date';
 
 /**
  * Date range boundaries
@@ -25,13 +30,13 @@ interface DateBoundaries {
 export function createDateBoundaries(): DateBoundaries {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  
+
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  
+
   const weekEnd = new Date(today);
   weekEnd.setDate(weekEnd.getDate() + 7);
-  
+
   return { today, tomorrow, weekEnd };
 }
 
@@ -39,33 +44,33 @@ export function createDateBoundaries(): DateBoundaries {
  * Filters reminders based on due date criteria
  */
 export function filterRemindersByDate(
-  reminders: Reminder[], 
-  filter: DateFilter
+  reminders: Reminder[],
+  filter: DateFilter,
 ): Reminder[] {
-  if (filter === "no-date") {
-    return reminders.filter(reminder => !reminder.dueDate);
+  if (filter === 'no-date') {
+    return reminders.filter((reminder) => !reminder.dueDate);
   }
-  
+
   const { today, tomorrow, weekEnd } = createDateBoundaries();
-  
-  return reminders.filter(reminder => {
+
+  return reminders.filter((reminder) => {
     if (!reminder.dueDate) return false;
-    
+
     const dueDate = new Date(reminder.dueDate);
-    
+
     switch (filter) {
-      case "overdue":
+      case 'overdue':
         return dueDate < today;
-        
-      case "today":
+
+      case 'today':
         return dueDate >= today && dueDate < tomorrow;
-        
-      case "tomorrow":
+
+      case 'tomorrow':
         return dueDate >= tomorrow && dueDate < getNextDay(tomorrow);
-        
-      case "this-week":
+
+      case 'this-week':
         return dueDate >= today && dueDate <= weekEnd;
-        
+
       default:
         return true;
     }
@@ -86,26 +91,26 @@ function getNextDay(date: Date): Date {
  */
 export function categorizeReminderByDueDate(reminder: Reminder): string {
   if (!reminder.dueDate) {
-    return "No Due Date";
+    return 'No Due Date';
   }
-  
-  const { today, tomorrow, weekEnd } = createDateBoundaries();
+
+  const { today } = createDateBoundaries();
   const dueDate = new Date(reminder.dueDate);
   const diffDays = calculateDaysDifference(dueDate, today);
-  
+
   if (diffDays < 0) {
-    return "Overdue";
+    return 'Overdue';
   }
-  
+
   if (diffDays === 0) {
-    return "Due Today";
+    return 'Due Today';
   }
-  
+
   if (diffDays <= 7) {
-    return "Due This Week";
+    return 'Due This Week';
   }
-  
-  return "Due Later";
+
+  return 'Due Later';
 }
 
 /**
@@ -130,38 +135,42 @@ export interface ReminderFilters {
  * Applies multiple filters to a list of reminders
  */
 export function applyReminderFilters(
-  reminders: Reminder[], 
-  filters: ReminderFilters
+  reminders: Reminder[],
+  filters: ReminderFilters,
 ): Reminder[] {
   let filteredReminders = [...reminders];
-  
+
   // Filter by completion status
   if (filters.showCompleted !== undefined) {
-    filteredReminders = filteredReminders.filter(reminder => 
-      filters.showCompleted || !reminder.isCompleted
+    filteredReminders = filteredReminders.filter(
+      (reminder) => filters.showCompleted || !reminder.isCompleted,
     );
   }
-  
+
   // Filter by list
   if (filters.list) {
-    filteredReminders = filteredReminders.filter(reminder => 
-      reminder.list === filters.list
+    filteredReminders = filteredReminders.filter(
+      (reminder) => reminder.list === filters.list,
     );
   }
-  
+
   // Filter by search term
   if (filters.search) {
     const searchLower = filters.search.toLowerCase();
-    filteredReminders = filteredReminders.filter(reminder => 
-      reminder.title.toLowerCase().includes(searchLower) ||
-      (reminder.notes && reminder.notes.toLowerCase().includes(searchLower))
+    filteredReminders = filteredReminders.filter(
+      (reminder) =>
+        reminder.title.toLowerCase().includes(searchLower) ||
+        reminder.notes?.toLowerCase().includes(searchLower),
     );
   }
-  
+
   // Filter by due date
   if (filters.dueWithin) {
-    filteredReminders = filterRemindersByDate(filteredReminders, filters.dueWithin);
+    filteredReminders = filterRemindersByDate(
+      filteredReminders,
+      filters.dueWithin,
+    );
   }
-  
+
   return filteredReminders;
 }

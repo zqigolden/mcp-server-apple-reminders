@@ -3,15 +3,14 @@
  * Utilities for parsing and formatting dates
  */
 
-import moment from "moment";
-import { debugLog } from "./logger.js";
-import { spawn } from "child_process";
-import { promisify } from "util";
+import { spawn } from 'node:child_process';
+import moment from 'moment';
+import { debugLog } from './logger.js';
 
 // Date format constants for AppleScript compatibility
-const DATE_ONLY_FORMAT = "MMMM D, YYYY" as const;
-const DATETIME_FORMAT_12_HOUR = "MMMM D, YYYY h:mm:ss A" as const;
-const DATETIME_FORMAT_24_HOUR = "MMMM D, YYYY HH:mm:ss" as const;
+const DATE_ONLY_FORMAT = 'MMMM D, YYYY' as const;
+const DATETIME_FORMAT_12_HOUR = 'MMMM D, YYYY h:mm:ss A' as const;
+const DATETIME_FORMAT_24_HOUR = 'MMMM D, YYYY HH:mm:ss' as const;
 
 /**
  * Time preference management using functional composition
@@ -38,9 +37,15 @@ function get24HourPreference(): boolean {
  */
 async function initializeTimePreferenceAsync(): Promise<void> {
   try {
-    const result = await safeSystemCommand('defaults', ['read', '-g', 'AppleICUForce24HourTime']);
+    const result = await safeSystemCommand('defaults', [
+      'read',
+      '-g',
+      'AppleICUForce24HourTime',
+    ]);
     timePreferenceState.cache = result === '1';
-    debugLog(`Time preference: ${timePreferenceState.cache ? '24-hour' : '12-hour'}`);
+    debugLog(
+      `Time preference: ${timePreferenceState.cache ? '24-hour' : '12-hour'}`,
+    );
   } catch (error) {
     timePreferenceState.cache = false;
     debugLog(`Using 12-hour default: ${(error as Error).message}`);
@@ -64,49 +69,61 @@ export { clearTimePreferenceCache };
 
 /**
  * Safely executes system command to read preferences
- * @param command - Command to execute 
+ * @param command - Command to execute
  * @param args - Command arguments
  * @param timeout - Timeout in milliseconds
  * @returns Promise with command output
  */
-async function safeSystemCommand(command: string, args: string[], timeout = 5000): Promise<string> {
-    return new Promise((resolve, reject) => {
-        // Simplified security check
-        if (command !== 'defaults' || !args.includes('AppleICUForce24HourTime')) {
-            reject(new Error(`Command not allowed: ${command}`));
-            return;
-        }
-        
-        const childProcess = spawn(command, args, {
-            stdio: ['ignore', 'pipe', 'pipe'],
-            timeout,
-            detached: false,
-        });
+async function safeSystemCommand(
+  command: string,
+  args: string[],
+  timeout = 5000,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    // Simplified security check
+    if (command !== 'defaults' || !args.includes('AppleICUForce24HourTime')) {
+      reject(new Error(`Command not allowed: ${command}`));
+      return;
+    }
 
-        let stdout = '';
-        let stderr = '';
-
-        childProcess.stdout?.on('data', (data) => stdout += data.toString());
-        childProcess.stderr?.on('data', (data) => stderr += data.toString());
-
-        childProcess.on('close', (code) => {
-            code === 0 ? resolve(stdout.trim()) : reject(new Error(`Command failed: ${stderr}`));
-        });
-
-        childProcess.on('error', (error) => reject(new Error(`Process error: ${error.message}`)));
-
-        setTimeout(() => {
-            if (!childProcess.killed) childProcess.kill('SIGTERM');
-            reject(new Error(`Command timed out after ${timeout}ms`));
-        }, timeout);
+    const childProcess = spawn(command, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout,
+      detached: false,
     });
+
+    let stdout = '';
+    let stderr = '';
+
+    childProcess.stdout?.on('data', (data) => {
+      stdout += data.toString();
+    });
+    childProcess.stderr?.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    childProcess.on('close', (code) => {
+      code === 0
+        ? resolve(stdout.trim())
+        : reject(new Error(`Command failed: ${stderr}`));
+    });
+
+    childProcess.on('error', (error) =>
+      reject(new Error(`Process error: ${error.message}`)),
+    );
+
+    setTimeout(() => {
+      if (!childProcess.killed) childProcess.kill('SIGTERM');
+      reject(new Error(`Command timed out after ${timeout}ms`));
+    }, timeout);
+  });
 }
 
 /**
  * Checks if a date string represents a date-only format (YYYY-MM-DD without time)
  * @param dateStr - Date string to check
  * @returns true if the string is in date-only format, false otherwise
- * 
+ *
  * @example
  * ```typescript
  * isDateOnlyFormat('2024-12-25') // Returns: true
@@ -137,7 +154,7 @@ export interface ParsedDate {
 export function parseDateWithType(dateStr: string): ParsedDate {
   const isDateOnly = isDateOnlyFormat(dateStr);
   const formatted = formatDate(dateStr, isDateOnly);
-  
+
   return { formatted, isDateOnly };
 }
 
@@ -147,7 +164,10 @@ export function parseDateWithType(dateStr: string): ParsedDate {
  * @param quoteFn - Function to quote AppleScript strings
  * @returns AppleScript property string for the appropriate date type
  */
-export function generateDateProperty(dateStr: string, quoteFn: (str: string) => string): string {
+export function generateDateProperty(
+  dateStr: string,
+  quoteFn: (str: string) => string,
+): string {
   const isDateOnly = isDateOnlyFormat(dateStr);
   const formatted = formatDate(dateStr, isDateOnly);
   const dateType = isDateOnly ? 'allday due date' : 'due date';
@@ -162,36 +182,36 @@ export function generateDateProperty(dateStr: string, quoteFn: (str: string) => 
  * @throws Error if the date format is invalid
  */
 function formatDate(dateStr: string, isDateOnly: boolean): string {
-  let parsedDate: any;
+  let parsedDate: moment.Moment;
   try {
-    parsedDate = moment(dateStr, [
-      "YYYY-MM-DD HH:mm:ss",
-      moment.ISO_8601,
-      "YYYY-MM-DD",
-    ], true);
+    parsedDate = moment(
+      dateStr,
+      ['YYYY-MM-DD HH:mm:ss', moment.ISO_8601, 'YYYY-MM-DD'],
+      true,
+    );
   } catch {
     // Normalize any parsing exceptions to a consistent message expected by tests/consumers
     throw new Error(
       `Invalid or unsupported date format: "${dateStr}". ` +
-      `Supported formats: YYYY-MM-DD HH:mm:ss, YYYY-MM-DD, ISO 8601. ` +
-      `Example: "2024-12-25 14:30:00"`
+        `Supported formats: YYYY-MM-DD HH:mm:ss, YYYY-MM-DD, ISO 8601. ` +
+        `Example: "2024-12-25 14:30:00"`,
     );
   }
 
   if (!parsedDate.isValid()) {
     throw new Error(
       `Invalid or unsupported date format: "${dateStr}". ` +
-      `Supported formats: YYYY-MM-DD HH:mm:ss, YYYY-MM-DD, ISO 8601. ` +
-      `Example: "2024-12-25 14:30:00"`
+        `Supported formats: YYYY-MM-DD HH:mm:ss, YYYY-MM-DD, ISO 8601. ` +
+        `Example: "2024-12-25 14:30:00"`,
     );
   }
 
   const englishMoment = parsedDate.locale('en');
-  
+
   if (isDateOnly) {
     return englishMoment.format(DATE_ONLY_FORMAT);
   }
-  
+
   const use24Hour = get24HourPreference();
   const format = use24Hour ? DATETIME_FORMAT_24_HOUR : DATETIME_FORMAT_12_HOUR;
   return englishMoment.format(format);
@@ -206,4 +226,4 @@ function formatDate(dateStr: string, isDateOnly: boolean): string {
 export function parseDate(dateStr: string): string {
   const isDateOnly = isDateOnlyFormat(dateStr);
   return formatDate(dateStr, isDateOnly);
-} 
+}

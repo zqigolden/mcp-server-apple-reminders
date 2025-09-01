@@ -3,18 +3,18 @@
  * Repository pattern implementation for reminder data access operations
  */
 
-import type { Reminder, ReminderList } from "../types/index.js";
-import { remindersManager } from "./reminders.js";
-import { 
+import type { Reminder, ReminderList } from '../types/index.js';
+import {
   ReminderCreationBuilder,
-  ReminderUpdateScriptBuilder,
   ReminderDeletionBuilder,
+  ReminderListCreationBuilder,
   ReminderMoveBuilder,
-  ReminderListCreationBuilder
-} from "./appleScriptBuilders.js";
-import { executeAppleScript } from "./applescript.js";
-import { applyReminderFilters, type ReminderFilters } from "./dateFiltering.js";
-import { debugLog } from "./logger.js";
+  ReminderUpdateScriptBuilder,
+} from './appleScriptBuilders.js';
+import { executeAppleScript } from './applescript.js';
+import { applyReminderFilters, type ReminderFilters } from './dateFiltering.js';
+import { debugLog } from './logger.js';
+import { remindersManager } from './reminders.js';
 
 /**
  * Interface for reminder creation data
@@ -57,14 +57,19 @@ export class ReminderRepository {
    * Retrieves all reminders with optional filtering
    */
   async findReminders(filters: ReminderFilters = {}): Promise<Reminder[]> {
-    const { reminders } = await remindersManager.getReminders(filters.showCompleted);
+    const { reminders } = await remindersManager.getReminders(
+      filters.showCompleted,
+    );
     return applyReminderFilters(reminders, filters);
   }
 
   /**
    * Retrieves reminders from a specific list
    */
-  async findRemindersByList(listName: string, filters: ReminderFilters = {}): Promise<Reminder[]> {
+  async findRemindersByList(
+    listName: string,
+    filters: ReminderFilters = {},
+  ): Promise<Reminder[]> {
     const allFilters: ReminderFilters = { ...filters, list: listName };
     return this.findReminders(allFilters);
   }
@@ -72,9 +77,12 @@ export class ReminderRepository {
   /**
    * Finds a specific reminder by title and optional list
    */
-  async findReminderByTitle(title: string, listName?: string): Promise<Reminder | null> {
+  async findReminderByTitle(
+    title: string,
+    listName?: string,
+  ): Promise<Reminder | null> {
     const reminders = await this.findReminders({ list: listName });
-    return reminders.find(reminder => reminder.title === title) || null;
+    return reminders.find((reminder) => reminder.title === title) || null;
   }
 
   /**
@@ -83,8 +91,8 @@ export class ReminderRepository {
   async createReminder(data: CreateReminderData): Promise<void> {
     const builder = new ReminderCreationBuilder(data);
     const script = builder.build();
-    
-    debugLog("Creating reminder with script:", script);
+
+    debugLog('Creating reminder with script:', script);
     executeAppleScript(script);
   }
 
@@ -94,8 +102,8 @@ export class ReminderRepository {
   async updateReminder(data: UpdateReminderData): Promise<void> {
     const builder = new ReminderUpdateScriptBuilder(data);
     const script = builder.build();
-    
-    debugLog("Updating reminder with script:", script);
+
+    debugLog('Updating reminder with script:', script);
     executeAppleScript(script);
   }
 
@@ -105,8 +113,8 @@ export class ReminderRepository {
   async deleteReminder(title: string, listName?: string): Promise<void> {
     const builder = new ReminderDeletionBuilder({ title, list: listName });
     const script = builder.build();
-    
-    debugLog("Deleting reminder with script:", script);
+
+    debugLog('Deleting reminder with script:', script);
     executeAppleScript(script);
   }
 
@@ -114,10 +122,14 @@ export class ReminderRepository {
    * Moves a reminder between lists
    */
   async moveReminder(data: MoveReminderData): Promise<void> {
-    const builder = new ReminderMoveBuilder(data.title, data.fromList, data.toList);
+    const builder = new ReminderMoveBuilder(
+      data.title,
+      data.fromList,
+      data.toList,
+    );
     const script = builder.build();
-    
-    debugLog("Moving reminder with script:", script);
+
+    debugLog('Moving reminder with script:', script);
     executeAppleScript(script);
   }
 
@@ -135,8 +147,8 @@ export class ReminderRepository {
   async createReminderList(name: string): Promise<void> {
     const builder = new ReminderListCreationBuilder(name);
     const script = builder.build();
-    
-    debugLog("Creating reminder list with script:", script);
+
+    debugLog('Creating reminder list with script:', script);
     executeAppleScript(script);
   }
 
@@ -145,15 +157,18 @@ export class ReminderRepository {
    */
   async listExists(name: string): Promise<boolean> {
     const lists = await this.findAllLists();
-    return lists.some(list => list.title === name);
+    return lists.some((list) => list.title === name);
   }
 
   /**
    * Gets reminder count for a specific list
    */
-  async getListReminderCount(listName: string, includeCompleted = false): Promise<number> {
-    const reminders = await this.findRemindersByList(listName, { 
-      showCompleted: includeCompleted 
+  async getListReminderCount(
+    listName: string,
+    includeCompleted = false,
+  ): Promise<number> {
+    const reminders = await this.findRemindersByList(listName, {
+      showCompleted: includeCompleted,
     });
     return reminders.length;
   }
@@ -165,14 +180,14 @@ export class ReminderRepository {
     active: Reminder[];
     completed: Reminder[];
   }> {
-    const reminders = await this.findReminders({ 
-      list: listName, 
-      showCompleted: true 
+    const reminders = await this.findReminders({
+      list: listName,
+      showCompleted: true,
     });
-    
+
     return {
-      active: reminders.filter(r => !r.isCompleted),
-      completed: reminders.filter(r => r.isCompleted)
+      active: reminders.filter((r) => !r.isCompleted),
+      completed: reminders.filter((r) => r.isCompleted),
     };
   }
 }

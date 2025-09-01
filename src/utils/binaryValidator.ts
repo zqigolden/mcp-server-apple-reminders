@@ -3,9 +3,9 @@
  * Secure binary path validation and integrity checking
  */
 
-import fs from 'fs';
-import path from 'path';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { debugLog } from './logger.js';
 
 /**
@@ -23,11 +23,7 @@ interface BinarySecurityConfig {
  */
 const DEFAULT_CONFIG: BinarySecurityConfig = {
   maxFileSize: 50 * 1024 * 1024, // 50MB max
-  allowedPaths: [
-    '/dist/swift/bin/',
-    '/src/swift/bin/',
-    '/swift/bin/',
-  ],
+  allowedPaths: ['/dist/swift/bin/', '/src/swift/bin/', '/swift/bin/'],
   requireAbsolutePath: true,
 };
 
@@ -35,7 +31,10 @@ const DEFAULT_CONFIG: BinarySecurityConfig = {
  * Binary validation error
  */
 export class BinaryValidationError extends Error {
-  constructor(message: string, public code: string) {
+  constructor(
+    message: string,
+    public code: string,
+  ) {
     super(message);
     this.name = 'BinaryValidationError';
   }
@@ -44,55 +43,79 @@ export class BinaryValidationError extends Error {
 /**
  * Validates binary path for security
  */
-export function validateBinaryPath(binaryPath: string, config: Partial<BinarySecurityConfig> = {}): void {
+export function validateBinaryPath(
+  binaryPath: string,
+  config: Partial<BinarySecurityConfig> = {},
+): void {
   const fullConfig = { ...DEFAULT_CONFIG, ...config };
-  
+
   // Validate path is absolute
   if (fullConfig.requireAbsolutePath && !path.isAbsolute(binaryPath)) {
-    throw new BinaryValidationError('Binary path must be absolute', 'INVALID_PATH');
+    throw new BinaryValidationError(
+      'Binary path must be absolute',
+      'INVALID_PATH',
+    );
   }
-  
+
   // Normalize path to prevent traversal attacks
   const normalizedPath = path.normalize(binaryPath);
   if (normalizedPath !== binaryPath) {
     debugLog(`Path normalized from ${binaryPath} to ${normalizedPath}`);
   }
-  
+
   // Check for path traversal attempts
   if (normalizedPath.includes('..')) {
-    throw new BinaryValidationError('Path traversal detected in binary path', 'PATH_TRAVERSAL');
+    throw new BinaryValidationError(
+      'Path traversal detected in binary path',
+      'PATH_TRAVERSAL',
+    );
   }
-  
+
   // Validate path is in allowed directories
-  const isAllowedPath = fullConfig.allowedPaths.some(allowedPath => 
-    normalizedPath.includes(allowedPath)
+  const isAllowedPath = fullConfig.allowedPaths.some((allowedPath) =>
+    normalizedPath.includes(allowedPath),
   );
-  
+
   if (!isAllowedPath) {
-    throw new BinaryValidationError('Binary path not in allowed directories', 'FORBIDDEN_PATH');
+    throw new BinaryValidationError(
+      'Binary path not in allowed directories',
+      'FORBIDDEN_PATH',
+    );
   }
-  
+
   // Check if file exists
   if (!fs.existsSync(normalizedPath)) {
-    throw new BinaryValidationError(`Binary file not found: ${normalizedPath}`, 'FILE_NOT_FOUND');
+    throw new BinaryValidationError(
+      `Binary file not found: ${normalizedPath}`,
+      'FILE_NOT_FOUND',
+    );
   }
-  
+
   // Validate file stats
   const stats = fs.statSync(normalizedPath);
-  
+
   if (!stats.isFile()) {
-    throw new BinaryValidationError('Binary path does not point to a file', 'NOT_A_FILE');
+    throw new BinaryValidationError(
+      'Binary path does not point to a file',
+      'NOT_A_FILE',
+    );
   }
-  
+
   if (stats.size > fullConfig.maxFileSize) {
-    throw new BinaryValidationError(`Binary file too large: ${stats.size} bytes`, 'FILE_TOO_LARGE');
+    throw new BinaryValidationError(
+      `Binary file too large: ${stats.size} bytes`,
+      'FILE_TOO_LARGE',
+    );
   }
-  
+
   // Check file permissions (should be executable)
   try {
     fs.accessSync(normalizedPath, fs.constants.X_OK);
-  } catch (error) {
-    throw new BinaryValidationError('Binary file is not executable', 'NOT_EXECUTABLE');
+  } catch (_error) {
+    throw new BinaryValidationError(
+      'Binary file is not executable',
+      'NOT_EXECUTABLE',
+    );
   }
 }
 
@@ -104,24 +127,30 @@ export function calculateBinaryHash(binaryPath: string): string {
     const fileBuffer = fs.readFileSync(binaryPath);
     return crypto.createHash('sha256').update(fileBuffer).digest('hex');
   } catch (error) {
-    throw new BinaryValidationError(`Failed to calculate binary hash: ${(error as Error).message}`, 'HASH_CALCULATION_FAILED');
+    throw new BinaryValidationError(
+      `Failed to calculate binary hash: ${(error as Error).message}`,
+      'HASH_CALCULATION_FAILED',
+    );
   }
 }
 
 /**
  * Validates binary integrity using hash
  */
-export function validateBinaryIntegrity(binaryPath: string, expectedHash: string): boolean {
+export function validateBinaryIntegrity(
+  binaryPath: string,
+  expectedHash: string,
+): boolean {
   try {
     const actualHash = calculateBinaryHash(binaryPath);
     const isValid = actualHash === expectedHash;
-    
+
     if (!isValid) {
       debugLog(`Binary integrity check failed:`);
       debugLog(`  Expected: ${expectedHash}`);
       debugLog(`  Actual:   ${actualHash}`);
     }
-    
+
     return isValid;
   } catch (error) {
     debugLog(`Binary integrity validation error: ${(error as Error).message}`);
@@ -133,34 +162,36 @@ export function validateBinaryIntegrity(binaryPath: string, expectedHash: string
  * Comprehensive binary security validation
  */
 export function validateBinarySecurity(
-  binaryPath: string, 
-  config: Partial<BinarySecurityConfig> = {}
-): { 
-  isValid: boolean; 
-  hash?: string; 
-  errors: string[]; 
+  binaryPath: string,
+  config: Partial<BinarySecurityConfig> = {},
+): {
+  isValid: boolean;
+  hash?: string;
+  errors: string[];
 } {
   const errors: string[] = [];
   let hash: string | undefined;
-  
+
   try {
     // Path validation
     validateBinaryPath(binaryPath, config);
-    
+
     // Calculate hash
     hash = calculateBinaryHash(binaryPath);
-    
+
     // Integrity check if expected hash provided
     if (config.expectedHash) {
-      const integrityValid = validateBinaryIntegrity(binaryPath, config.expectedHash);
+      const integrityValid = validateBinaryIntegrity(
+        binaryPath,
+        config.expectedHash,
+      );
       if (!integrityValid) {
         errors.push('Binary integrity check failed - hash mismatch');
       }
     }
-    
+
     debugLog(`Binary security validation passed for: ${binaryPath}`);
     debugLog(`Binary hash: ${hash}`);
-    
   } catch (error) {
     if (error instanceof BinaryValidationError) {
       errors.push(`${error.code}: ${error.message}`);
@@ -168,11 +199,11 @@ export function validateBinarySecurity(
       errors.push(`Unexpected validation error: ${(error as Error).message}`);
     }
   }
-  
+
   return {
     isValid: errors.length === 0,
     hash,
-    errors
+    errors,
   };
 }
 
@@ -181,26 +212,28 @@ export function validateBinarySecurity(
  */
 export function findSecureBinaryPath(
   possiblePaths: string[],
-  config: Partial<BinarySecurityConfig> = {}
-): { 
-  path: string | null; 
-  validationResult?: ReturnType<typeof validateBinarySecurity>; 
+  config: Partial<BinarySecurityConfig> = {},
+): {
+  path: string | null;
+  validationResult?: ReturnType<typeof validateBinarySecurity>;
 } {
   debugLog('Searching for secure binary path...');
-  
-    for (const binaryPath of possiblePaths) {
+
+  for (const binaryPath of possiblePaths) {
     debugLog(`Validating path: ${binaryPath}`);
 
     const validationResult = validateBinarySecurity(binaryPath, config);
-    
+
     if (validationResult.isValid) {
       debugLog(`✅ Secure binary found at: ${binaryPath}`);
       return { path: binaryPath, validationResult };
     } else {
-      debugLog(`❌ Binary validation failed: ${validationResult.errors.join(', ')}`);
+      debugLog(
+        `❌ Binary validation failed: ${validationResult.errors.join(', ')}`,
+      );
     }
   }
-  
+
   debugLog('❌ No secure binary path found');
   return { path: null };
 }
@@ -216,14 +249,14 @@ export function getEnvironmentBinaryConfig(): Partial<BinarySecurityConfig> {
       maxFileSize: 100 * 1024 * 1024, // 100MB for test
     };
   }
-  
+
   if (process.env.NODE_ENV === 'development') {
     // Development mode - log more details
     return {
       maxFileSize: 100 * 1024 * 1024, // 100MB for dev
     };
   }
-  
+
   // Production mode - strict validation
   return {
     expectedHash: process.env.SWIFT_BINARY_HASH,

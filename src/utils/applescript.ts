@@ -3,8 +3,8 @@
  * Utilities for interacting with AppleScript on macOS
  */
 
-import { execSync } from "child_process";
-import { debugLog } from "./logger.js";
+import { execSync } from 'node:child_process';
+import { debugLog } from './logger.js';
 
 /**
  * Escapes special characters in a string for safe use in AppleScript
@@ -13,9 +13,9 @@ import { debugLog } from "./logger.js";
  */
 function escapeAppleScriptString(str: string): string {
   return str
-    .replace(/\\/g, "\\\\")  // Escape backslashes first
-    .replace(/"/g, '\\"')    // Escape double quotes
-    .replace(/'/g, "\\'");   // Escape single quotes
+    .replace(/\\/g, '\\\\') // Escape backslashes first
+    .replace(/"/g, '\\"') // Escape double quotes
+    .replace(/'/g, "\\'"); // Escape single quotes
 }
 
 /**
@@ -30,7 +30,7 @@ export function executeAppleScript(script: string): string {
     const command = `osascript << 'EOF'\n${script}\nEOF`;
     return execSync(command).toString().trim();
   } catch (error) {
-    debugLog("AppleScript execution error:", error);
+    debugLog('AppleScript execution error:', error);
     throw error;
   }
 }
@@ -52,8 +52,3 @@ export function createRemindersScript(scriptBody: string): string {
 export function quoteAppleScriptString(str: string): string {
   return `"${escapeAppleScriptString(str)}"`;
 }
-
-
-
-
- 

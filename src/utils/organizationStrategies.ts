@@ -3,53 +3,56 @@
  * Simplified reminder organization utilities
  */
 
-import type { Reminder } from "../types/index.js";
-import { categorizeReminderByDueDate } from "./dateFiltering.js";
+import type { Reminder } from '../types/index.js';
+import { categorizeReminderByDueDate } from './dateFiltering.js';
 
 /**
  * Simple categorization functions for reminders
  */
-export class ReminderOrganizer {
-  static categorizeByPriority(reminder: Reminder): string {
-    const text = `${reminder.title} ${reminder.notes || ""}`.toLowerCase();
-    const highKeywords = ["urgent", "important", "critical", "asap"];
-    const lowKeywords = ["later", "someday", "eventually", "maybe"];
+export const ReminderOrganizer = {
+  categorizeByPriority(reminder: Reminder): string {
+    const text = `${reminder.title} ${reminder.notes || ''}`.toLowerCase();
+    const highKeywords = ['urgent', 'important', 'critical', 'asap'];
+    const lowKeywords = ['later', 'someday', 'eventually', 'maybe'];
 
-    if (highKeywords.some(k => text.includes(k))) return "High Priority";
-    if (lowKeywords.some(k => text.includes(k))) return "Low Priority";
-    return "Medium Priority";
-  }
+    if (highKeywords.some((k) => text.includes(k))) return 'High Priority';
+    if (lowKeywords.some((k) => text.includes(k))) return 'Low Priority';
+    return 'Medium Priority';
+  },
 
-  static categorizeByDueDate(reminder: Reminder): string {
+  categorizeByDueDate(reminder: Reminder): string {
     return categorizeReminderByDueDate(reminder);
-  }
+  },
 
-  static categorizeByCompletion(reminder: Reminder): string {
-    return reminder.isCompleted ? "Completed" : "Active";
-  }
+  categorizeByCompletion(reminder: Reminder): string {
+    return reminder.isCompleted ? 'Completed' : 'Active';
+  },
 
-  static categorizeByCategory(reminder: Reminder): string {
-    const text = `${reminder.title} ${reminder.notes || ""}`.toLowerCase();
+  categorizeByCategory(reminder: Reminder): string {
+    const text = `${reminder.title} ${reminder.notes || ''}`.toLowerCase();
     const categories = {
-      "Work": ["work", "meeting", "project", "office", "client", "business"],
-      "Personal": ["personal", "home", "family", "friend", "self"],
-      "Shopping": ["shopping", "buy", "store", "purchase", "groceries"],
-      "Health": ["health", "doctor", "exercise", "medical", "fitness", "workout"],
-      "Finance": ["bill", "payment", "finance", "money", "bank", "budget"],
-      "Travel": ["travel", "trip", "vacation", "flight", "hotel"],
-      "Education": ["study", "learn", "course", "school", "book", "research"]
+      Work: ['work', 'meeting', 'project', 'office', 'client', 'business'],
+      Personal: ['personal', 'home', 'family', 'friend', 'self'],
+      Shopping: ['shopping', 'buy', 'store', 'purchase', 'groceries'],
+      Health: ['health', 'doctor', 'exercise', 'medical', 'fitness', 'workout'],
+      Finance: ['bill', 'payment', 'finance', 'money', 'bank', 'budget'],
+      Travel: ['travel', 'trip', 'vacation', 'flight', 'hotel'],
+      Education: ['study', 'learn', 'course', 'school', 'book', 'research'],
     };
 
     for (const [category, keywords] of Object.entries(categories)) {
-      if (keywords.some(keyword => text.includes(keyword))) {
+      if (keywords.some((keyword) => text.includes(keyword))) {
         return category;
       }
     }
 
-    return "Uncategorized";
-  }
+    return 'Uncategorized';
+  },
 
-  static organizeReminders(reminders: Reminder[], strategy: string = 'category'): Record<string, Reminder[]> {
+  organizeReminders(
+    reminders: Reminder[],
+    strategy: string = 'category',
+  ): Record<string, Reminder[]> {
     const groups: Record<string, Reminder[]> = {};
 
     for (const reminder of reminders) {
@@ -57,17 +60,16 @@ export class ReminderOrganizer {
 
       switch (strategy) {
         case 'priority':
-          category = this.categorizeByPriority(reminder);
+          category = ReminderOrganizer.categorizeByPriority(reminder);
           break;
         case 'due_date':
-          category = this.categorizeByDueDate(reminder);
+          category = ReminderOrganizer.categorizeByDueDate(reminder);
           break;
         case 'completion_status':
-          category = this.categorizeByCompletion(reminder);
+          category = ReminderOrganizer.categorizeByCompletion(reminder);
           break;
-        case 'category':
         default:
-          category = this.categorizeByCategory(reminder);
+          category = ReminderOrganizer.categorizeByCategory(reminder);
           break;
       }
 
@@ -76,5 +78,5 @@ export class ReminderOrganizer {
     }
 
     return groups;
-  }
-}
+  },
+};
