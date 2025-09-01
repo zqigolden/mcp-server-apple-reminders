@@ -1,28 +1,41 @@
-# Apple Reminders MCP Server ![](https://img.shields.io/badge/A%20FRAD%20PRODUCT-WIP-yellow)
+# Apple Reminders MCP Server ![Version 0.7.2](https://img.shields.io/badge/version-0.7.2-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer)
 
 [English](README.md) | 简体中文
 
-一个为 macOS 提供原生 Apple Reminders 集成的 Model Context Protocol (MCP) 服务器。该服务器允许你通过标准化接口与 Apple Reminders 进行交互。
+一个为 macOS 提供原生 Apple Reminders 集成的 Model Context Protocol (MCP) 服务器。该服务器允许你通过标准化接口与 Apple Reminders 进行交互，具有全面的管理功能。
 
 [![MseeP.ai Security Assessment Badge](https://mseep.net/pr/fradser-mcp-server-apple-reminders-badge.png)](https://mseep.ai/app/fradser-mcp-server-apple-reminders)
 
 ## 功能特性
 
-- 列出所有提醒事项和提醒事项列表
-- 创建带有标题和可选详细信息的新提醒事项
-- 更新现有提醒事项（标题、备注、截止日期、完成状态）
-- 将提醒事项标记为完成/未完成
-- 为提醒事项添加备注
-- 为提醒事项设置截止日期
-- 原生 macOS 集成
+### 核心功能
+- **列表管理**：查看所有提醒事项和列表的高级过滤功能
+- **提醒事项操作**：创建、更新、删除和移动提醒事项
+- **丰富内容**：支持标题、备注、截止日期、URL 和完成状态
+- **原生集成**：与 macOS Apple Reminders 应用的无缝集成
+
+### 高级功能
+- **智能组织**：按优先级、截止日期、类别或完成状态自动分类
+- **强大的搜索**：按完成状态、截止日期和搜索词过滤提醒事项
+- **批量操作**：使用智能策略组织多个提醒事项
+- **权限管理**：主动验证系统权限
+- **灵活的日期处理**：支持仅日期和日期时间格式，并考虑区域设置
+- **Unicode 支持**：完整的国际字符支持和验证
+
+### 技术优势
+- **统一 API**：基于操作的工具架构简化了复杂性
+- **类型安全**：全面的 TypeScript 覆盖和 Zod 验证
+- **性能优化**：用于性能关键操作的 Swift 二进制文件
+- **错误处理**：一致的错误响应和详细反馈
 
 ## 系统要求
 
-- Node.js 18 或更高版本
-- macOS（Apple Reminders 集成所需）
-- Xcode Command Line Tools（编译 Swift 代码所需）
+- **Node.js 18 或更高版本**
+- **macOS**（Apple Reminders 集成所需）
+- **Xcode Command Line Tools**（编译 Swift 代码所需）
+- **pnpm**（推荐用于包管理）
 
 ## 快速开始
 
@@ -150,109 +163,197 @@ code %APPDATA%\Claude\claude_desktop_config.json
 
 ## 可用的 MCP 工具
 
-此服务器提供以下 MCP 服务用于与 Apple Reminders 交互：
+此服务器提供两个统一的 MCP 工具用于全面的 Apple Reminders 管理：
 
-### 创建提醒事项
+### 提醒事项工具
 
-`create_reminder(title: string, dueDate?: string, list?: string, note?: string, url?: string)`
+**工具名称**：`reminders`
 
-创建具有指定标题和可选参数的新提醒事项：
-- `title`：提醒事项标题（必需）
-- `dueDate`：可选的截止日期，格式为 'YYYY-MM-DD HH:mm:ss'（例如：'2025-03-12 10:00:00'）
-- `list`：可选的提醒事项列表名称
-- `note`：可选的备注文本
-- `url`：可选的 URL 链接
+一个支持基于操作的 Apple Reminders 管理的综合工具。通过单个统一接口支持所有提醒事项操作。
 
-示例响应：
+**操作**：`list`, `create`, `update`, `delete`, `move`, `organize`
+
+#### 按操作的参数
+
+**列表操作**（`action: "list"`）：
+- `list` *(可选)*：要显示的提醒事项列表名称
+- `showCompleted` *(可选)*：包含已完成的提醒事项（默认：false）
+- `search` *(可选)*：按标题或内容搜索提醒事项
+- `dueWithin` *(可选)*：按截止日期范围筛选（"today"、"tomorrow"、"this-week"、"overdue"、"no-date"）
+
+**创建操作**（`action: "create"`）：
+- `title` *(必需)*：提醒事项标题
+- `dueDate` *(可选)*：截止日期，格式为 'YYYY-MM-DD' 或 'YYYY-MM-DD HH:mm:ss'
+- `list` *(可选)*：要添加到的提醒事项列表名称
+- `note` *(可选)*：要附加到提醒事项的备注文本
+- `url` *(可选)*：要与提醒事项关联的 URL
+
+**更新操作**（`action: "update"`）：
+- `title` *(必需)*：要更新的提醒事项的当前标题
+- `newTitle` *(可选)*：提醒事项的新标题
+- `dueDate` *(可选)*：新的截止日期，格式为 'YYYY-MM-DD' 或 'YYYY-MM-DD HH:mm:ss'
+- `note` *(可选)*：新的备注文本
+- `completed` *(可选)*：将提醒事项标记为已完成/未完成
+- `list` *(可选)*：包含提醒事项的列表名称
+- `url` *(可选)*：要附加到提醒事项的新 URL
+
+**删除操作**（`action: "delete"`）：
+- `title` *(必需)*：要删除的提醒事项标题
+- `list` *(可选)*：包含提醒事项的列表名称
+
+**移动操作**（`action: "move"`）：
+- `title` *(必需)*：要移动的提醒事项标题
+- `fromList` *(可选)*：源列表名称
+- `toList` *(必需)*：目标列表名称
+
+**组织操作**（`action: "organize"`）：
+- `strategy` *(必需)*：组织策略（"priority"、"due_date"、"category"、"completion_status"）
+- `sourceList` *(可选)*：要组织的源列表
+- `createLists` *(可选)*：自动创建新列表（默认：true）
+
+#### 使用示例
+
+```json
+{
+  "action": "create",
+  "title": "购买杂货",
+  "dueDate": "2024-03-25 18:00:00",
+  "list": "购物",
+  "note": "别忘了牛奶和鸡蛋",
+  "url": "https://example.com/shopping-list"
+}
+```
+
+```json
+{
+  "action": "list",
+  "list": "工作",
+  "showCompleted": false,
+  "dueWithin": "today"
+}
+```
+
+```json
+{
+  "action": "organize",
+  "strategy": "category",
+  "sourceList": "收件箱",
+  "createLists": true
+}
+```
+
+### 列表工具
+
+**工具名称**：`lists`
+
+管理提醒事项列表 - 查看现有列表或创建新列表用于组织提醒事项。
+
+**操作**：`list`, `create`
+
+#### 按操作的参数
+
+**列表操作**（`action: "list"`）：
+- 无需额外参数
+
+**创建操作**（`action: "create"`）：
+- `name` *(必需)*：新提醒事项列表的名称
+
+#### 使用示例
+
+```json
+{
+  "action": "create",
+  "name": "项目阿尔法"
+}
+```
+
+#### 响应格式
+
+**成功响应**：
 ```json
 {
   "content": [
     {
       "type": "text",
-      "text": "Successfully created reminder: Buy groceries with notes"
+      "text": "成功创建提醒事项：购买杂货"
     }
   ],
   "isError": false
 }
 ```
 
-### 更新提醒事项
-
-`update_reminder(title: string, newTitle?: string, dueDate?: string, note?: string, completed?: boolean, list?: string, url?: string)`
-
-通过标题更新现有提醒事项。注意：如果多个提醒事项具有相同标题，只会更新找到的第一个。
-- `title`：要更新的提醒事项的当前标题（必需）
-- `newTitle`：提醒事项的新标题（可选）
-- `dueDate`：新的截止日期，格式为 'YYYY-MM-DD HH:mm:ss'（可选）
-- `note`：新的备注文本（可选）
-- `completed`：将提醒事项标记为已完成/未完成（可选）
-- `list`：包含提醒事项的列表名称（建议用于准确性）
-- `url`：要附加到提醒事项的新 URL（可选）
-
-示例响应：
-```json
-{
-  "content": [
-    {
-      "type": "text",
-      "text": "Successfully updated reminder \"Buy groceries\": title to \"Buy organic groceries\", notes"
-    }
-  ],
-  "isError": false
-}
-```
-
-### 列出提醒事项
-
-`list_reminders(list?: string, showCompleted?: boolean, search?: string, dueWithin?: string)`
-
-列出所有提醒事项或特定列表中的提醒事项：
-- `list`：可选的提醒事项列表名称
-- `showCompleted`：是否显示已完成的提醒事项（默认：false）
-- `search`：搜索标题或备注中包含此文本的提醒事项
-- `dueWithin`：按截止日期范围筛选（"today"、"tomorrow"、"this-week"、"overdue"、"no-date"）
-
-示例响应：
+**列表响应**：
 ```json
 {
   "reminders": [
     {
-      "title": "Buy groceries",
-      "list": "Shopping",
+      "title": "购买杂货",
+      "list": "购物",
       "isCompleted": false,
       "dueDate": "2024-03-25 18:00:00",
-      "notes": "Don't forget milk"
+      "notes": "别忘了牛奶",
+      "url": null
     }
   ],
   "total": 1,
   "filter": {
-    "list": "Shopping",
+    "list": "购物",
     "showCompleted": false
   }
 }
 ```
 
-### 列出提醒事项列表
+## 组织策略
 
-`list_reminder_lists()`
+服务器通过四个内置策略提供智能提醒事项组织功能：
 
-返回所有可用提醒事项列表。
+### 优先级策略
+基于优先级关键词自动分类提醒事项：
+- **高优先级**：包含"紧急"、"重要"、"关键"、"紧急"等词
+- **中优先级**：标准提醒事项的默认类别
+- **低优先级**：包含"稍后"、"某天"、"最终"、"也许"等词
 
-示例响应：
-```json
-{
-  "lists": [
-    {
-      "id": 1,
-      "title": "Shopping"
-    },
-    {
-      "id": 2,
-      "title": "Work"
-    }
-  ],
-  "total": 2
-}
+### 截止日期策略
+基于提醒事项的截止日期进行组织：
+- **已过期**：过去的截止日期
+- **今天**：今天到期的提醒事项
+- **明天**：明天到期的提醒事项
+- **本周**：本周内到期的提醒事项
+- **下周**：下周到期的提醒事项
+- **未来**：下周之后到期的提醒事项
+- **无日期**：没有截止日期的提醒事项
+
+### 类别策略
+通过内容分析智能分类提醒事项：
+- **工作**：商务、会议、项目、办公室、客户相关
+- **个人**：家庭、朋友、自我护理相关
+- **购物**：购买、商店、采购、杂货相关
+- **健康**：医生、运动、医疗、健身、锻炼相关
+- **财务**：账单、付款、金融、银行、预算相关
+- **旅行**：旅行、假期、航班、酒店相关
+- **教育**：学习、课程、学校、书籍、研究相关
+- **未分类**：不匹配任何特定类别的提醒事项
+
+### 完成状态策略
+简单的二元组织：
+- **活跃**：未完成的提醒事项
+- **已完成**：已完成的提醒事项
+
+### 使用示例
+
+按优先级组织所有提醒事项：
+```
+按优先级组织我的提醒事项
+```
+
+对工作相关的提醒事项进行分类：
+```
+从工作列表按类别组织提醒事项
+```
+
+对过期项目进行排序：
+```
+按截止日期组织过期提醒事项
 ```
 
 ## 开发
@@ -271,27 +372,73 @@ npm run build
 
 ```
 .
-├── src/                   # 源代码目录
-│   ├── index.ts           # 主入口点
-│   ├── server/            # MCP 服务器实现
-│   ├── swift/             # 原生 Swift 集成代码
-│   │   ├── bin/           # 编译后的 Swift 二进制文件
-│   │   └── src/           # Swift 源文件
-│   ├── tools/             # CLI 工具和实用程序
-│   ├── types/             # TypeScript 类型定义
-│   └── utils/             # 辅助函数和实用工具
-├── dist/                  # 编译后的 JavaScript 输出
-├── node_modules/          # Node.js 依赖
-└── tests/                 # 测试文件和测试实用程序
+├── src/                          # 源代码目录
+│   ├── index.ts                  # 主入口点
+│   ├── server/                   # MCP 服务器实现
+│   │   ├── server.ts             # 服务器配置和生命周期
+│   │   ├── handlers.ts           # 请求处理器和路由
+│   │   └── *.test.ts             # 服务器测试
+│   ├── swift/                    # 原生 Swift 集成代码
+│   │   ├── bin/                  # 编译后的 Swift 二进制文件
+│   │   ├── GetReminders.swift    # Swift 源文件
+│   │   └── build.sh              # Swift 构建脚本
+│   ├── tools/                    # MCP 工具定义和处理器
+│   │   ├── definitions.ts        # 工具模式和验证
+│   │   ├── handlers.ts           # 工具实现逻辑
+│   │   ├── index.ts              # 工具注册
+│   │   └── *.test.ts             # 工具测试
+│   ├── types/                    # TypeScript 类型定义
+│   │   └── index.ts              # 核心类型定义
+│   ├── utils/                    # 辅助函数和实用工具
+│   │   ├── __mocks__/            # 测试模拟
+│   │   ├── *.ts                  # 实用工具模块
+│   │   └── *.test.ts             # 实用工具测试
+│   ├── validation/               # 模式验证实用工具
+│   │   └── schemas.ts            # Zod 验证模式
+│   └── test-setup.ts             # 测试环境设置
+├── dist/                         # 编译后的 JavaScript 输出
+│   ├── index.js                  # 主编译入口点
+│   ├── swift/bin/                # 编译后的 Swift 二进制文件
+│   ├── server/                   # 服务器编译文件
+│   ├── tools/                    # 工具编译文件
+│   ├── types/                    # 类型编译文件
+│   ├── utils/                    # 实用工具编译文件
+│   └── validation/               # 验证编译文件
+├── node_modules/                 # Node.js 依赖
+├── package.json                  # 包配置
+├── tsconfig.json                 # TypeScript 配置
+├── jest.config.mjs               # Jest 测试配置
+├── pnpm-lock.yaml               # pnpm 锁定文件
+└── *.md                         # 文档文件
 ```
 
 ### 可用脚本
 
-- `npm run build` - 构建 TypeScript 代码和 Swift 二进制文件
-- `npm run dev` - TypeScript 监视模式
-- `npm test` - 运行测试套件
-- `npm start` - 启动 MCP 服务器
+- `npm run build` - 构建 TypeScript 和 Swift 组件（启动服务器前必需）
+- `npm run build:ts` - 仅构建 TypeScript 代码
+- `npm run build:swift` - 仅构建 Swift 二进制文件
+- `npm run dev` - TypeScript 开发模式，支持文件监视
+- `npm run start` - 启动 MCP 服务器
+- `npm run test` - 运行全面的测试套件
 - `npm run clean` - 清理构建产物
+
+### 依赖
+
+**运行时依赖：**
+- `@modelcontextprotocol/sdk ^1.5.0` - MCP 协议实现
+- `moment ^2.30.1` - 日期/时间处理实用工具
+- `zod ^3.24.2` - 运行时类型验证
+
+**开发依赖：**
+- `typescript ^5.8.2` - TypeScript 编译器
+- `@types/node ^20.0.0` - Node.js 类型定义
+- `@types/jest ^29.5.12` - Jest 类型定义
+- `jest ^29.7.0` - 测试框架
+- `ts-jest ^29.1.2` - Jest TypeScript 支持
+
+**构建工具：**
+- Swift 二进制文件用于原生 macOS 集成
+- TypeScript 编译用于跨平台兼容性
 
 ## License
 

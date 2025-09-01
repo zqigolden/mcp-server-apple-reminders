@@ -1,28 +1,41 @@
-# Apple Reminders MCP Server ![](https://img.shields.io/badge/A%20FRAD%20PRODUCT-WIP-yellow)
+# Apple Reminders MCP Server ![Version 0.7.2](https://img.shields.io/badge/version-0.7.2-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer)
 
 English | [简体中文](README.zh-CN.md)
 
-A Model Context Protocol (MCP) server that provides native integration with Apple Reminders on macOS. This server allows you to interact with Apple Reminders through a standardized interface.
+A Model Context Protocol (MCP) server that provides native integration with Apple Reminders on macOS. This server allows you to interact with Apple Reminders through a standardized interface with comprehensive management capabilities.
 
 [![MseeP.ai Security Assessment Badge](https://mseep.net/pr/fradser-mcp-server-apple-reminders-badge.png)](https://mseep.ai/app/fradser-mcp-server-apple-reminders)
 
 ## Features
 
-- List all reminders and reminder lists
-- Create new reminders with titles and optional details
-- Update existing reminders (title, notes, due date, completion status)
-- Mark reminders as complete/incomplete
-- Add notes to reminders
-- Set due dates for reminders
-- Native macOS integration
+### Core Functionality
+- **List Management**: View all reminders and reminder lists with advanced filtering
+- **Reminder Operations**: Create, update, delete, and move reminders across lists
+- **Rich Content**: Support for titles, notes, due dates, URLs, and completion status
+- **Native Integration**: Seamless integration with macOS Apple Reminders app
+
+### Advanced Features
+- **Smart Organization**: Automatic categorization by priority, due date, category, or completion status
+- **Powerful Search**: Filter reminders by completion status, due dates, and search terms
+- **Batch Operations**: Organize multiple reminders with intelligent strategies
+- **Permission Management**: Proactive validation of system permissions
+- **Flexible Date Handling**: Support for both date-only and date-time formats with locale awareness
+- **Unicode Support**: Full international character support with validation
+
+### Technical Excellence
+- **Unified API**: Streamlined tool architecture with action-based operations
+- **Type Safety**: Comprehensive TypeScript coverage with Zod validation
+- **Performance**: Swift binaries for performance-critical operations
+- **Error Handling**: Consistent error responses with detailed feedback
 
 ## Prerequisites
 
-- Node.js 18 or later
-- macOS (required for Apple Reminders integration)
-- Xcode Command Line Tools (required for compiling Swift code)
+- **Node.js 18 or later**
+- **macOS** (required for Apple Reminders integration)
+- **Xcode Command Line Tools** (required for compiling Swift code)
+- **pnpm** (recommended for package management)
 
 ## Quick Start
 
@@ -151,69 +164,126 @@ The server will:
 
 ## Available MCP Tools
 
-This server provides the following MCP services for interacting with Apple Reminders:
+This server provides two unified MCP tools for comprehensive Apple Reminders management:
 
-### Create Reminder
+### Reminders Tool
 
-`create_reminder(title: string, dueDate?: string, list?: string, note?: string, url?: string)`
+**Tool Name**: `reminders`
 
-Creates a new reminder with the specified title and optional parameters:
-- `title`: Title of the reminder (required)
-- `dueDate`: Optional due date in format 'YYYY-MM-DD HH:mm:ss' (e.g., '2025-03-12 10:00:00')
-- `list`: Optional name of the reminders list to add to
-- `note`: Optional note text to attach to the reminder
-- `url`: Optional URL to attach to the reminder
+A comprehensive tool for managing Apple Reminders with action-based operations. Supports all reminder operations through a single unified interface.
 
-Example response:
+**Actions**: `list`, `create`, `update`, `delete`, `move`, `organize`
+
+#### Parameters by Action
+
+**List Action** (`action: "list"`):
+- `list` *(optional)*: Name of the reminder list to show
+- `showCompleted` *(optional)*: Include completed reminders (default: false)
+- `search` *(optional)*: Search term to filter reminders by title or content
+- `dueWithin` *(optional)*: Filter by due date range ("today", "tomorrow", "this-week", "overdue", "no-date")
+
+**Create Action** (`action: "create"`):
+- `title` *(required)*: Title of the reminder
+- `dueDate` *(optional)*: Due date in format 'YYYY-MM-DD' or 'YYYY-MM-DD HH:mm:ss'
+- `list` *(optional)*: Name of the reminders list to add to
+- `note` *(optional)*: Note text to attach to the reminder
+- `url` *(optional)*: URL to associate with the reminder
+
+**Update Action** (`action: "update"`):
+- `title` *(required)*: Current title of the reminder to update
+- `newTitle` *(optional)*: New title for the reminder
+- `dueDate` *(optional)*: New due date in format 'YYYY-MM-DD' or 'YYYY-MM-DD HH:mm:ss'
+- `note` *(optional)*: New note text
+- `completed` *(optional)*: Mark reminder as completed/uncompleted
+- `list` *(optional)*: Name of the list containing the reminder
+- `url` *(optional)*: New URL to attach to the reminder
+
+**Delete Action** (`action: "delete"`):
+- `title` *(required)*: Title of the reminder to delete
+- `list` *(optional)*: Name of the list containing the reminder
+
+**Move Action** (`action: "move"`):
+- `title` *(required)*: Title of the reminder to move
+- `fromList` *(optional)*: Source list name
+- `toList` *(required)*: Destination list name
+
+**Organize Action** (`action: "organize"`):
+- `strategy` *(required)*: Organization strategy ("priority", "due_date", "category", "completion_status")
+- `sourceList` *(optional)*: Source list to organize from
+- `createLists` *(optional)*: Create new lists automatically (default: true)
+
+#### Example Usage
+
+```json
+{
+  "action": "create",
+  "title": "Buy groceries",
+  "dueDate": "2024-03-25 18:00:00",
+  "list": "Shopping",
+  "note": "Don't forget milk and eggs",
+  "url": "https://example.com/shopping-list"
+}
+```
+
+```json
+{
+  "action": "list",
+  "list": "Work",
+  "showCompleted": false,
+  "dueWithin": "today"
+}
+```
+
+```json
+{
+  "action": "organize",
+  "strategy": "category",
+  "sourceList": "Inbox",
+  "createLists": true
+}
+```
+
+### Lists Tool
+
+**Tool Name**: `lists`
+
+Manage reminder lists - view existing lists or create new ones for organizing reminders.
+
+**Actions**: `list`, `create`
+
+#### Parameters by Action
+
+**List Action** (`action: "list"`):
+- No additional parameters required
+
+**Create Action** (`action: "create"`):
+- `name` *(required)*: Name for new reminder list
+
+#### Example Usage
+
+```json
+{
+  "action": "create",
+  "name": "Project Alpha"
+}
+```
+
+#### Response Formats
+
+**Success Response**:
 ```json
 {
   "content": [
     {
       "type": "text",
-      "text": "Successfully created reminder: Buy groceries with notes"
+      "text": "Successfully created reminder: Buy groceries"
     }
   ],
   "isError": false
 }
 ```
 
-### Update Reminder
-
-`update_reminder(title: string, newTitle?: string, dueDate?: string, note?: string, completed?: boolean, list?: string, url?: string)`
-
-Updates an existing reminder by title. Note: If multiple reminders have the same title, only the first one found will be updated.
-- `title`: Current title of the reminder to update (required)
-- `newTitle`: New title for the reminder (optional)
-- `dueDate`: New due date in format 'YYYY-MM-DD HH:mm:ss' (optional)
-- `note`: New note text (optional)
-- `completed`: Mark reminder as completed/uncompleted (optional)
-- `list`: Name of the list containing the reminder (recommended for accuracy)
-- `url`: New URL to attach to the reminder (optional)
-
-Example response:
-```json
-{
-  "content": [
-    {
-      "type": "text",
-      "text": "Successfully updated reminder \"Buy groceries\": title to \"Buy organic groceries\", notes"
-    }
-  ],
-  "isError": false
-}
-```
-
-### List Reminders
-
-`list_reminders(list?: string, showCompleted?: boolean, search?: string, dueWithin?: string)`
-
-Lists all reminders or reminders from a specific list:
-- `list`: Optional name of the reminders list to show
-- `showCompleted`: Whether to show completed reminders (default: false)
-- `search`: Search for reminders containing this text in title or notes
-- `dueWithin`: Filter by due date range ("today", "tomorrow", "this-week", "overdue", "no-date")
-
-Example response:
+**List Response**:
 ```json
 {
   "reminders": [
@@ -222,7 +292,8 @@ Example response:
       "list": "Shopping",
       "isCompleted": false,
       "dueDate": "2024-03-25 18:00:00",
-      "notes": "Don't forget milk"
+      "notes": "Don't forget milk",
+      "url": null
     }
   ],
   "total": 1,
@@ -233,70 +304,57 @@ Example response:
 }
 ```
 
-### Delete Reminder
+## Organization Strategies
 
-`delete_reminder(title: string, list?: string)`
+The server provides intelligent reminder organization capabilities through four built-in strategies:
 
-Deletes a reminder by title:
-- `title`: Title of the reminder to delete (required)
-- `list`: Optional name of the list containing the reminder (recommended for accuracy)
+### Priority Strategy
+Automatically categorizes reminders based on priority keywords:
+- **High Priority**: Contains words like "urgent", "important", "critical", "asap"
+- **Medium Priority**: Default category for standard reminders
+- **Low Priority**: Contains words like "later", "someday", "eventually", "maybe"
 
-Example response:
-```json
-{
-  "content": [
-    {
-      "type": "text",
-      "text": "Successfully deleted reminder: Buy groceries"
-    }
-  ],
-  "isError": false
-}
+### Due Date Strategy
+Organizes reminders based on their due dates:
+- **Overdue**: Past due dates
+- **Today**: Due today
+- **Tomorrow**: Due tomorrow
+- **This Week**: Due within the current week
+- **Next Week**: Due next week
+- **Future**: Due beyond next week
+- **No Date**: Reminders without due dates
+
+### Category Strategy
+Intelligently categorizes reminders by content analysis:
+- **Work**: Business, meetings, projects, office, client related
+- **Personal**: Home, family, friends, self-care related
+- **Shopping**: Buy, store, purchase, groceries related
+- **Health**: Doctor, exercise, medical, fitness, workout related
+- **Finance**: Bills, payments, bank, budget related
+- **Travel**: Trips, flights, hotels, vacation related
+- **Education**: Study, learn, courses, books, research related
+- **Uncategorized**: Doesn't match any specific category
+
+### Completion Status Strategy
+Simple binary organization:
+- **Active**: Incomplete reminders
+- **Completed**: Finished reminders
+
+### Usage Examples
+
+Organize all reminders by priority:
+```
+Organize my reminders by priority
 ```
 
-### Move Reminder
-
-`move_reminder(title: string, fromList?: string, toList: string)`
-
-Moves a reminder between lists:
-- `title`: Title of the reminder to move (required)
-- `fromList`: Optional name of the source list
-- `toList`: Name of the destination list (required)
-
-Example response:
-```json
-{
-  "content": [
-    {
-      "type": "text",
-      "text": "Successfully moved reminder 'Buy groceries' to list 'Shopping'"
-    }
-  ],
-  "isError": false
-}
+Categorize work-related reminders:
+```
+Organize reminders from Work list by category
 ```
 
-### List Reminder Lists
-
-`list_reminder_lists()`
-
-Returns a list of all available reminder lists.
-
-Example response:
-```json
-{
-  "lists": [
-    {
-      "id": 1,
-      "title": "Shopping"
-    },
-    {
-      "id": 2,
-      "title": "Work"
-    }
-  ],
-  "total": 2
-}
+Sort overdue items:
+```
+Organize overdue reminders by due date
 ```
 
 ## License
@@ -323,24 +381,70 @@ npm run build
 
 ```
 .
-├── src/                   # Source code directory
-│   ├── index.ts           # Main entry point
-│   ├── server/            # MCP server implementation
-│   ├── swift/             # Native Swift integration code
-│   │   ├── bin/           # Compiled Swift binaries
-│   │   └── src/           # Swift source files
-│   ├── tools/             # CLI tools and utilities
-│   ├── types/             # TypeScript type definitions
-│   └── utils/             # Helper functions and utilities
-├── dist/                  # Compiled JavaScript output
-├── node_modules/          # Node.js dependencies
-└── tests/                 # Test files and test utilities
+├── src/                          # Source code directory
+│   ├── index.ts                  # Main entry point
+│   ├── server/                   # MCP server implementation
+│   │   ├── server.ts             # Server configuration and lifecycle
+│   │   ├── handlers.ts           # Request handlers and routing
+│   │   └── *.test.ts             # Server tests
+│   ├── swift/                    # Native Swift integration code
+│   │   ├── bin/                  # Compiled Swift binaries
+│   │   ├── GetReminders.swift    # Swift source file
+│   │   └── build.sh              # Swift build script
+│   ├── tools/                    # MCP tool definitions and handlers
+│   │   ├── definitions.ts        # Tool schemas and validation
+│   │   ├── handlers.ts           # Tool implementation logic
+│   │   ├── index.ts              # Tool registration
+│   │   └── *.test.ts             # Tool tests
+│   ├── types/                    # TypeScript type definitions
+│   │   └── index.ts              # Core type definitions
+│   ├── utils/                    # Helper functions and utilities
+│   │   ├── __mocks__/            # Test mocks
+│   │   ├── *.ts                  # Utility modules
+│   │   └── *.test.ts             # Utility tests
+│   ├── validation/               # Schema validation utilities
+│   │   └── schemas.ts            # Zod validation schemas
+│   └── test-setup.ts             # Test environment setup
+├── dist/                         # Compiled JavaScript output
+│   ├── index.js                  # Main compiled entry point
+│   ├── swift/bin/                # Compiled Swift binaries
+│   ├── server/                   # Server compiled files
+│   ├── tools/                    # Tools compiled files
+│   ├── types/                    # Types compiled files
+│   ├── utils/                    # Utils compiled files
+│   └── validation/               # Validation compiled files
+├── node_modules/                 # Node.js dependencies
+├── package.json                  # Package configuration
+├── tsconfig.json                 # TypeScript configuration
+├── jest.config.mjs               # Jest test configuration
+├── pnpm-lock.yaml               # pnpm lock file
+└── *.md                         # Documentation files
 ```
 
 ### Available Scripts
 
-- `npm run build` - Build TypeScript code and Swift binary (REQUIRED before starting server)
-- `npm run dev` - TypeScript watch mode
-- `npm test` - Run test suite
-- `npm start` - Start MCP server
+- `npm run build` - Build both TypeScript and Swift components (REQUIRED before starting server)
+- `npm run build:ts` - Build TypeScript code only
+- `npm run build:swift` - Build Swift binary only
+- `npm run dev` - TypeScript development mode with file watching
+- `npm run start` - Start the MCP server
+- `npm run test` - Run comprehensive test suite
 - `npm run clean` - Clean build artifacts
+
+### Dependencies
+
+**Runtime Dependencies:**
+- `@modelcontextprotocol/sdk ^1.5.0` - MCP protocol implementation
+- `moment ^2.30.1` - Date/time handling utilities
+- `zod ^3.24.2` - Runtime type validation
+
+**Development Dependencies:**
+- `typescript ^5.8.2` - TypeScript compiler
+- `@types/node ^20.0.0` - Node.js type definitions
+- `@types/jest ^29.5.12` - Jest type definitions
+- `jest ^29.7.0` - Testing framework
+- `ts-jest ^29.1.2` - Jest TypeScript support
+
+**Build Tools:**
+- Swift binaries for native macOS integration
+- TypeScript compilation for cross-platform compatibility
