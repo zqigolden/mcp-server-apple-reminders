@@ -1,39 +1,43 @@
 // 使用全局 Jest 函数，避免额外依赖
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { createServer, startServer } from './server.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { ServerConfig } from '../types/index.js';
+import { createServer, startServer } from './server.js';
 
 // Mock dependencies
-jest.mock("@modelcontextprotocol/sdk/server/index.js");
-jest.mock("@modelcontextprotocol/sdk/server/stdio.js");
+jest.mock('@modelcontextprotocol/sdk/server/index.js');
+jest.mock('@modelcontextprotocol/sdk/server/stdio.js');
 jest.mock('./handlers.js', () => ({
-  registerHandlers: jest.fn()
+  registerHandlers: jest.fn(),
 }));
 jest.mock('../utils/logger.js');
 
 const mockServer = Server as jest.MockedClass<typeof Server>;
-const mockStdioServerTransport = StdioServerTransport as jest.MockedClass<typeof StdioServerTransport>;
+const mockStdioServerTransport = StdioServerTransport as jest.MockedClass<
+  typeof StdioServerTransport
+>;
 
 // Import the mocked handler function
-const { registerHandlers } = jest.requireMock('./handlers.js') as { registerHandlers: jest.MockedFunction<any> };
+const { registerHandlers } = jest.requireMock('./handlers.js') as {
+  registerHandlers: jest.MockedFunction<(server: unknown) => void>;
+};
 const mockRegisterHandlers = registerHandlers;
 
 describe('Server Module', () => {
   let mockServerInstance: jest.Mocked<Server>;
   let mockTransportInstance: jest.Mocked<StdioServerTransport>;
-  
+
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Mock server instance
     mockServerInstance = {
-      connect: jest.fn()
-    } as any;
-    
+      connect: jest.fn(),
+    } as jest.Mocked<Server>;
+
     // Mock transport instance
-    mockTransportInstance = {} as any;
-    
+    mockTransportInstance = {} as jest.Mocked<StdioServerTransport>;
+
     mockServer.mockImplementation(() => mockServerInstance);
     mockStdioServerTransport.mockImplementation(() => mockTransportInstance);
   });
@@ -42,7 +46,7 @@ describe('Server Module', () => {
     test('should create server with correct configuration', () => {
       const config: ServerConfig = {
         name: 'test-server',
-        version: '1.0.0'
+        version: '1.0.0',
       };
 
       const server = createServer(config);
@@ -50,15 +54,15 @@ describe('Server Module', () => {
       expect(mockServer).toHaveBeenCalledWith(
         {
           name: 'test-server',
-          version: '1.0.0'
+          version: '1.0.0',
         },
         {
           capabilities: {
             resources: {},
             tools: {},
-            prompts: {}
-          }
-        }
+            prompts: {},
+          },
+        },
       );
 
       expect(mockRegisterHandlers).toHaveBeenCalledWith(mockServerInstance);
@@ -69,21 +73,21 @@ describe('Server Module', () => {
       const configs = [
         { name: 'mcp-server', version: '2.1.0' },
         { name: 'test', version: '0.0.1' },
-        { name: 'production-server', version: '10.5.3' }
+        { name: 'production-server', version: '10.5.3' },
       ];
 
-      configs.forEach(config => {
+      configs.forEach((config) => {
         mockServer.mockClear();
         mockRegisterHandlers.mockClear();
 
-        const server = createServer(config);
+        const _server = createServer(config);
 
         expect(mockServer).toHaveBeenCalledWith(
           {
             name: config.name,
-            version: config.version
+            version: config.version,
           },
-          expect.any(Object)
+          expect.any(Object),
         );
 
         expect(mockRegisterHandlers).toHaveBeenCalledWith(mockServerInstance);
@@ -93,21 +97,18 @@ describe('Server Module', () => {
     test('should set up correct capabilities', () => {
       const config: ServerConfig = {
         name: 'test',
-        version: '1.0.0'
+        version: '1.0.0',
       };
 
       createServer(config);
 
-      expect(mockServer).toHaveBeenCalledWith(
-        expect.any(Object),
-        {
-          capabilities: {
-            resources: {},
-            tools: {},
-            prompts: {}
-          }
-        }
-      );
+      expect(mockServer).toHaveBeenCalledWith(expect.any(Object), {
+        capabilities: {
+          resources: {},
+          tools: {},
+          prompts: {},
+        },
+      });
     });
   });
 
@@ -115,7 +116,7 @@ describe('Server Module', () => {
     test('should start server successfully', async () => {
       const config: ServerConfig = {
         name: 'test-server',
-        version: '1.0.0'
+        version: '1.0.0',
       };
 
       mockServerInstance.connect.mockResolvedValue(undefined);
@@ -124,13 +125,15 @@ describe('Server Module', () => {
 
       expect(mockServer).toHaveBeenCalled();
       expect(mockStdioServerTransport).toHaveBeenCalled();
-      expect(mockServerInstance.connect).toHaveBeenCalledWith(mockTransportInstance);
+      expect(mockServerInstance.connect).toHaveBeenCalledWith(
+        mockTransportInstance,
+      );
     });
 
     test('should handle server connection failure', async () => {
       const config: ServerConfig = {
         name: 'test-server',
-        version: '1.0.0'
+        version: '1.0.0',
       };
 
       const connectionError = new Error('Connection failed');
@@ -152,7 +155,7 @@ describe('Server Module', () => {
     test('should create server and transport instances', async () => {
       const config: ServerConfig = {
         name: 'test-server',
-        version: '1.0.0'
+        version: '1.0.0',
       };
 
       mockServerInstance.connect.mockResolvedValue(undefined);
@@ -167,14 +170,14 @@ describe('Server Module', () => {
     test('should handle different error types during startup', async () => {
       const config: ServerConfig = {
         name: 'test-server',
-        version: '1.0.0'
+        version: '1.0.0',
       };
 
       const errors = [
         new Error('Network error'),
         new TypeError('Type error'),
         'String error',
-        { message: 'Object error' }
+        { message: 'Object error' },
       ];
 
       const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {
@@ -184,7 +187,9 @@ describe('Server Module', () => {
       for (const error of errors) {
         mockServerInstance.connect.mockRejectedValue(error);
 
-        await expect(startServer(config)).rejects.toThrow('process.exit called');
+        await expect(startServer(config)).rejects.toThrow(
+          'process.exit called',
+        );
         expect(mockExit).toHaveBeenCalledWith(1);
 
         mockExit.mockClear();
@@ -196,7 +201,7 @@ describe('Server Module', () => {
     test('should log server startup progress', async () => {
       const config: ServerConfig = {
         name: 'mcp-server',
-        version: '2.0.0'
+        version: '2.0.0',
       };
 
       mockServerInstance.connect.mockResolvedValue(undefined);
@@ -212,7 +217,7 @@ describe('Server Module', () => {
     test('should handle synchronous errors during server creation', async () => {
       const config: ServerConfig = {
         name: 'test-server',
-        version: '1.0.0'
+        version: '1.0.0',
       };
 
       mockServer.mockImplementation(() => {
@@ -232,7 +237,7 @@ describe('Server Module', () => {
     test('should handle transport creation failure', async () => {
       const config: ServerConfig = {
         name: 'test-server',
-        version: '1.0.0'
+        version: '1.0.0',
       };
 
       mockStdioServerTransport.mockImplementation(() => {

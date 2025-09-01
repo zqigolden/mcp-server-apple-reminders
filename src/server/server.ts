@@ -3,11 +3,11 @@
  * Server configuration and startup logic
  */
 
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import type { ServerConfig } from "../types/index.js";
-import { debugLog, logError } from "../utils/logger.js";
-import { registerHandlers } from "./handlers.js";
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import type { ServerConfig } from '../types/index.js';
+import { debugLog, logError } from '../utils/logger.js';
+import { registerHandlers } from './handlers.js';
 
 /**
  * Creates and configures an MCP server instance
@@ -26,7 +26,7 @@ export function createServer(config: ServerConfig): Server {
         tools: {},
         prompts: {},
       },
-    }
+    },
   );
 
   // Register request handlers
@@ -43,15 +43,15 @@ export function createServer(config: ServerConfig): Server {
 export async function startServer(config: ServerConfig): Promise<void> {
   try {
     debugLog(`Starting ${config.name} v${config.version}...`);
-    
+
     const server = createServer(config);
     const transport = new StdioServerTransport();
-    
+
     await server.connect(transport);
-    
-    debugLog("Server started successfully");
+
+    debugLog('Server started successfully');
   } catch (error) {
-    logError("Failed to start server", error);
+    logError('Failed to start server', error);
     process.exit(1);
   }
-} 
+}
