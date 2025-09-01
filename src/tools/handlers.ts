@@ -6,7 +6,7 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { ensurePermissions } from "../utils/permissions.js";
 import { reminderRepository, type CreateReminderData, type UpdateReminderData, type MoveReminderData } from "../utils/reminderRepository.js";
-import { OrganizationStrategyFactory, ReminderOrganizationService } from "../utils/organizationStrategies.js";
+import { ReminderOrganizer } from "../utils/organizationStrategies.js";
 import { ErrorResponseFactory, handleAsyncOperation, handleJsonAsyncOperation } from "../utils/errorHandling.js";
 import { applyReminderFilters, type ReminderFilters } from "../utils/dateFiltering.js";
 import { MESSAGES, JSON_FORMATTING } from "../utils/constants.js";
@@ -96,20 +96,16 @@ export async function handleUpdateReminder(args: any): Promise<CallToolResult> {
 async function processBatchOrganization(batchOperation: any): Promise<string> {
   const filters = buildBatchFilters(batchOperation);
   const reminders = await reminderRepository.findReminders(filters);
-  
-  const strategy = OrganizationStrategyFactory.createStrategy(
-    batchOperation.strategy || "category"
-  );
-  
-  const organizationService = new ReminderOrganizationService(strategy);
-  const groups = organizationService.organizeReminders(reminders);
-  
+
+  const strategy = batchOperation.strategy || "category";
+  const groups = ReminderOrganizer.organizeReminders(reminders, strategy);
+
   const results = await processBatchGroups(
-    groups, 
+    groups,
     batchOperation.createLists !== false
   );
-  
-  return `Batch organization complete using ${strategy.getStrategyName()} strategy:\n${results.join('\n')}`;
+
+  return `Batch organization complete using ${strategy} strategy:\n${results.join('\n')}`;
 }
 
 /**

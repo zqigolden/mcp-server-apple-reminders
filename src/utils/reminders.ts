@@ -3,12 +3,11 @@ import fs from 'fs';
 import path from 'path';
 import type { Reminder, ReminderList } from '../types/index.js';
 import { logger } from './logger.js';
-import { getModulePaths } from './moduleHelpers.js';
-import { 
-  findSecureBinaryPath, 
-  validateBinarySecurity, 
+import {
+  findSecureBinaryPath,
+  validateBinarySecurity,
   getEnvironmentBinaryConfig,
-  BinaryValidationError 
+  BinaryValidationError
 } from './binaryValidator.js';
 
 /**
@@ -29,49 +28,93 @@ export class RemindersManager {
   }
 
   private findBinaryPath(): string {
-    // Auto-discover project root by searching for package.json
-    const { __filename, __dirname } = getModulePaths();
-    let projectRoot = path.dirname(__filename);
-    const pathToPkg = 'package.json';
-    const maxDepth = 10; // Prevent infinite loops
-    let depth = 0;
-    while (!fs.existsSync(path.join(projectRoot, pathToPkg)) && depth < maxDepth) {
-      const parent = path.dirname(projectRoot);
-      if (parent === projectRoot) break;
-      projectRoot = parent;
-      depth++;
+    // Use centralized binary path resolution
+    // Find project root by searching for package.json
+
+    let projectRoot: string;
+
+    // Check if we're in test environment
+    if (process.env.NODE_ENV === 'test') {
+      // In test environment, use cwd method
+      projectRoot = process.cwd();
+      const maxDepth = 10;
+      let depth = 0;
+
+      while (!fs.existsSync(path.join(projectRoot, 'package.json')) && depth < maxDepth) {
+        const parent = path.dirname(projectRoot);
+        if (parent === projectRoot) break;
+        projectRoot = parent;
+        depth++;
+      }
+    } else {
+      // In production/development, try to find project root based on current file location
+      try {
+        // Get the directory of the current file
+        const currentFileUrl = import.meta.url;
+        const currentFilePath = new URL(currentFileUrl).pathname;
+        const currentDir = path.dirname(currentFilePath);
+
+        // Start from the current file's directory and go up to find package.json
+        projectRoot = currentDir;
+        let found = false;
+
+        // Look for package.json by going up the directory tree
+        for (let i = 0; i < 10; i++) {
+          if (fs.existsSync(path.join(projectRoot, 'package.json'))) {
+            found = true;
+            break;
+          }
+          const parent = path.dirname(projectRoot);
+          if (parent === projectRoot) break; // Reached root
+          projectRoot = parent;
+        }
+
+        // If we couldn't find package.json from file location, fall back to cwd
+        if (!found) {
+          logger.debug('Could not find package.json from file location, falling back to cwd');
+          projectRoot = process.cwd();
+          const maxDepth = 10;
+          let depth = 0;
+
+          while (!fs.existsSync(path.join(projectRoot, 'package.json')) && depth < maxDepth) {
+            const parent = path.dirname(projectRoot);
+            if (parent === projectRoot) break;
+            projectRoot = parent;
+            depth++;
+          }
+        }
+      } catch (error) {
+        logger.debug('Error getting file location, falling back to cwd:', error);
+        // Fallback to cwd method
+        projectRoot = process.cwd();
+        const maxDepth = 10;
+        let depth = 0;
+
+        while (!fs.existsSync(path.join(projectRoot, 'package.json')) && depth < maxDepth) {
+          const parent = path.dirname(projectRoot);
+          if (parent === projectRoot) break;
+          projectRoot = parent;
+          depth++;
+        }
+      }
     }
 
-    // Try multiple possible binary locations with absolute paths
+    // Try standard binary locations
     const possiblePaths = [
       path.resolve(projectRoot, 'dist', 'swift', 'bin', 'GetReminders'),
-      path.resolve(projectRoot, 'src', 'swift', 'bin', 'GetReminders'),
-      path.resolve(projectRoot, 'swift', 'bin', 'GetReminders'),
-      path.resolve(__dirname, '..', '..', 'dist', 'swift', 'bin', 'GetReminders'),
-      path.resolve(__dirname, '..', '..', 'src', 'swift', 'bin', 'GetReminders')
+      path.resolve(projectRoot, 'src', 'swift', 'bin', 'GetReminders')
     ];
 
-    // Use secure binary path finder with environment-specific config
-    const securityConfig = getEnvironmentBinaryConfig();
-    const { path: securePath, validationResult } = findSecureBinaryPath(possiblePaths, securityConfig);
+    const { path: securePath } = findSecureBinaryPath(possiblePaths, getEnvironmentBinaryConfig());
 
-    if (securePath && validationResult?.isValid) {
-      logger.debug(`✅ Secure Swift binary found at: ${securePath}`);
-      if (validationResult.hash) {
-        logger.debug(`Binary hash: ${validationResult.hash}`);
-      }
+    if (securePath) {
+      logger.debug(`✅ Swift binary found at: ${securePath}`);
       return securePath;
     }
 
-    // If no secure path found, throw security error
-    const errorDetails = validationResult?.errors.join('; ') || 'No valid binary found';
-    logger.error(`❌ Binary security validation failed: ${errorDetails}`);
-    
-    // For backward compatibility, return default path but log security warning
+    // Fallback to default path
     const defaultPath = path.resolve(projectRoot, 'dist', 'swift', 'bin', 'GetReminders');
-    logger.warn(`⚠️  Using unvalidated binary path for backward compatibility: ${defaultPath}`);
-    logger.warn(`⚠️  SECURITY WARNING: Binary integrity could not be verified`);
-    
+    logger.warn(`⚠️  Using fallback binary path: ${defaultPath}`);
     return defaultPath;
   }
 
@@ -88,7 +131,7 @@ export class RemindersManager {
       logger.error(`Swift binary security validation failed:\n  - ${errorMessage}`);
       
       // Provide helpful error message based on validation failure
-      if (validationResult.errors.some(e => e.includes('FILE_NOT_FOUND'))) {
+      if (validationResult.errors.some((e: string) => e.includes('FILE_NOT_FOUND'))) {
         throw new BinaryValidationError(`Swift binary not found. Please run the build script first:
         
   npm run build:swift
@@ -100,7 +143,7 @@ Or build the complete project:
 Binary should be located at: ${this.binaryPath}`, 'BINARY_NOT_FOUND');
       }
       
-      if (validationResult.errors.some(e => e.includes('NOT_EXECUTABLE'))) {
+      if (validationResult.errors.some((e: string) => e.includes('NOT_EXECUTABLE'))) {
         throw new BinaryValidationError(`Swift binary is not executable. Please check permissions:
         
   chmod +x "${this.binaryPath}"

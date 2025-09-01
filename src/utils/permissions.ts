@@ -10,7 +10,6 @@ import path from 'path';
 import fs from 'fs';
 import { logger } from './logger.js';
 import { BinaryValidationError } from './binaryValidator.js';
-import { getModulePaths } from './moduleHelpers.js';
 import { findSecureBinaryPath, getEnvironmentBinaryConfig } from './binaryValidator.js';
 import { 
   TIMEOUTS, 
@@ -36,16 +35,14 @@ export interface SystemPermissions {
   allGranted: boolean;
 }
 
-// Binary path management
+// Binary path management - simplified
 let cachedBinaryPath: string | null = null;
 
 /**
- * Initializes and caches the Swift binary path
+ * Gets cached binary path or resolves it
  */
 function getBinaryPath(): string | null {
-  if (cachedBinaryPath !== null) {
-    return cachedBinaryPath;
-  }
+  if (cachedBinaryPath !== null) return cachedBinaryPath;
 
   if (process.env[ENVIRONMENT_VARS.NODE_ENV] === ENVIRONMENTS.TEST) {
     cachedBinaryPath = BINARY_PATHS.MOCK_PATH;
@@ -54,12 +51,17 @@ function getBinaryPath(): string | null {
 
   try {
     const projectRoot = findProjectRoot();
-    const possiblePaths = buildPossibleBinaryPaths(projectRoot);
-    cachedBinaryPath = resolveSecureBinaryPath(possiblePaths);
-    return cachedBinaryPath;
+    const binaryName = FILE_SYSTEM.SWIFT_BINARY_NAME;
+    const possiblePaths = [
+      path.resolve(projectRoot, BINARY_PATHS.DIST_PATH, binaryName),
+      path.resolve(projectRoot, BINARY_PATHS.SRC_PATH, binaryName)
+    ];
+
+    const { path: securePath } = findSecureBinaryPath(possiblePaths, getEnvironmentBinaryConfig());
+    cachedBinaryPath = securePath;
+    return securePath;
   } catch (error) {
-    logger.error(`❌ Failed to initialize binary path: ${error}`);
-    cachedBinaryPath = null;
+    logger.error(`Failed to initialize binary path: ${error}`);
     return null;
   }
 }
@@ -68,52 +70,15 @@ function getBinaryPath(): string | null {
  * Finds project root by searching for package.json
  */
 function findProjectRoot(): string {
-  const { __filename } = getModulePaths();
-  let projectRoot = path.dirname(__filename);
+  // Find project root by searching for package.json
+  let projectRoot = process.cwd();
   let depth = 0;
-  
-  while (!packageJsonExists(projectRoot) && depth < FILE_SYSTEM.MAX_DIRECTORY_SEARCH_DEPTH) {
-    const parent = path.dirname(projectRoot);
-    if (parent === projectRoot) break;
-    projectRoot = parent;
+
+  while (!fs.existsSync(path.join(projectRoot, 'package.json')) && depth < 10) {
+    projectRoot = path.dirname(projectRoot);
     depth++;
   }
   return projectRoot;
-}
-
-/**
- * Checks if package.json exists in directory
- */
-function packageJsonExists(directory: string): boolean {
-  return fs.existsSync(path.join(directory, FILE_SYSTEM.PACKAGE_JSON_FILENAME));
-}
-
-/**
- * Builds possible binary paths in order of preference
- */
-function buildPossibleBinaryPaths(projectRoot: string): string[] {
-  const binaryName = FILE_SYSTEM.SWIFT_BINARY_NAME;
-  return [
-    path.resolve(projectRoot, BINARY_PATHS.DIST_PATH, binaryName),
-    path.resolve(projectRoot, BINARY_PATHS.SRC_PATH, binaryName),
-    path.resolve(projectRoot, BINARY_PATHS.FALLBACK_PATH, binaryName)
-  ];
-}
-
-/**
- * Resolves secure binary path from possible paths
- */
-function resolveSecureBinaryPath(possiblePaths: string[]): string | null {
-  const securityConfig = getEnvironmentBinaryConfig();
-  const { path: securePath } = findSecureBinaryPath(possiblePaths, securityConfig);
-  
-  if (securePath) {
-    logger.debug(`✅ Binary path initialized: ${securePath}`);
-    return securePath;
-  } else {
-    logger.warn(`⚠️  Binary path not found`);
-    return null;
-  }
 }
 
 // Permission checking functions

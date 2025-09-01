@@ -13,14 +13,11 @@ class RemindersManager {
             eventStore.requestFullAccessToReminders { granted, error in
                 completion(granted, error)
             }
-        } else if #available(macOS 10.15, *) {
-            // Use the older API for macOS 10.15 to 13.x
+        } else {
+            // Use the older API for macOS 10.15 and later
             eventStore.requestAccess(to: .reminder) { granted, error in
                 completion(granted, error)
             }
-        } else {
-            // For older macOS versions
-            eventStore.requestAccess(to: .reminder, completion: completion)
         }
     }
     

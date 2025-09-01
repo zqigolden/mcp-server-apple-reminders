@@ -77,26 +77,26 @@ async function safeSystemCommand(command: string, args: string[], timeout = 5000
             return;
         }
         
-        const process = spawn(command, args, {
+        const childProcess = spawn(command, args, {
             stdio: ['ignore', 'pipe', 'pipe'],
             timeout,
             detached: false,
         });
-        
+
         let stdout = '';
         let stderr = '';
-        
-        process.stdout?.on('data', (data) => stdout += data.toString());
-        process.stderr?.on('data', (data) => stderr += data.toString());
-        
-        process.on('close', (code) => {
+
+        childProcess.stdout?.on('data', (data) => stdout += data.toString());
+        childProcess.stderr?.on('data', (data) => stderr += data.toString());
+
+        childProcess.on('close', (code) => {
             code === 0 ? resolve(stdout.trim()) : reject(new Error(`Command failed: ${stderr}`));
         });
-        
-        process.on('error', (error) => reject(new Error(`Process error: ${error.message}`)));
-        
+
+        childProcess.on('error', (error) => reject(new Error(`Process error: ${error.message}`)));
+
         setTimeout(() => {
-            if (!process.killed) process.kill('SIGTERM');
+            if (!childProcess.killed) childProcess.kill('SIGTERM');
             reject(new Error(`Command timed out after ${timeout}ms`));
         }, timeout);
     });

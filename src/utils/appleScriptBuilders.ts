@@ -1,14 +1,11 @@
 /**
  * appleScriptBuilders.ts
- * Reusable utilities for building AppleScript commands with consistent patterns
+ * Simplified AppleScript builders for reminder operations
  */
 
 import { quoteAppleScriptString, createRemindersScript } from "./applescript.js";
 import { generateDateProperty, parseDateWithType } from "./date.js";
 
-/**
- * Interface for reminder creation properties
- */
 interface ReminderProperties {
   title: string;
   dueDate?: string;
@@ -17,9 +14,6 @@ interface ReminderProperties {
   list?: string;
 }
 
-/**
- * Interface for reminder update properties
- */
 interface ReminderUpdateProperties {
   title: string;
   newTitle?: string;
@@ -30,9 +24,6 @@ interface ReminderUpdateProperties {
   list?: string;
 }
 
-/**
- * Interface for reminder targeting options
- */
 interface ReminderTarget {
   title: string;
   list?: string;
@@ -42,53 +33,32 @@ interface ReminderTarget {
  * Builder for AppleScript reminder creation commands
  */
 export class ReminderCreationBuilder {
-  private properties: ReminderProperties;
-  
-  constructor(properties: ReminderProperties) {
-    this.properties = properties;
-  }
-  
-  /**
-   * Builds the complete AppleScript for creating a reminder
-   */
+  constructor(private properties: ReminderProperties) {}
+
   build(): string {
-    const scriptParts = [
-      this.buildListSelector(),
-      this.buildReminderProperties(),
-      this.buildCreationCommand()
-    ];
-    
-    return createRemindersScript(scriptParts.join('\n'));
-  }
-  
-  private buildListSelector(): string {
-    return this.properties.list
+    const listSelector = this.properties.list
       ? `set targetList to list ${quoteAppleScriptString(this.properties.list)}`
       : "set targetList to default list";
-  }
-  
-  private buildReminderProperties(): string {
+
     const props = [`name:${quoteAppleScriptString(this.properties.title)}`];
-    
+
     if (this.properties.dueDate) {
-      props.push(generateDateProperty(this.properties.dueDate, quoteAppleScriptString).slice(1)); // Remove leading comma
+      props.push(generateDateProperty(this.properties.dueDate, quoteAppleScriptString).slice(1));
     }
-    
+
     const combinedNote = this.combineNoteAndUrl();
     if (combinedNote) {
       props.push(`body:${quoteAppleScriptString(combinedNote)}`);
     }
-    
-    return `set reminderProps to {${props.join(', ')}}`;
+
+    const reminderProps = `set reminderProps to {${props.join(', ')}}`;
+    const creationCommand = "set newReminder to make new reminder at end of targetList with properties reminderProps";
+
+    return createRemindersScript([listSelector, reminderProps, creationCommand].join('\n'));
   }
-  
-  private buildCreationCommand(): string {
-    return "set newReminder to make new reminder at end of targetList with properties reminderProps";
-  }
-  
+
   private combineNoteAndUrl(): string {
     const { note, url } = this.properties;
-    
     if (!note && !url) return "";
     if (!note) return url!;
     if (!url) return note;

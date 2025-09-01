@@ -4,45 +4,32 @@
  */
 
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { ValidationError } from "../validation/schemas.js";
 
 /**
- * Error response factory for consistent error handling across all tools
+ * Simplified error handling utilities
  */
 export class ErrorResponseFactory {
-  /**
-   * Creates a standardized error response for tool operations
-   */
   static createErrorResponse(operation: string, error: unknown): CallToolResult {
-    const message = this.determineErrorMessage(operation, error);
-    
+    const message = error instanceof Error ? error.message : 'System error occurred';
+    const isDev = process.env.NODE_ENV === 'development' || process.env.DEBUG;
+    const errorMessage = isDev ? `Failed to ${operation}: ${message}` : `Failed to ${operation}: System error occurred`;
+
     return {
-      content: [{ type: "text", text: message }],
+      content: [{ type: "text", text: errorMessage }],
       isError: true,
     };
   }
 
-  /**
-   * Creates a JSON error response for operations that return JSON
-   */
   static createJsonErrorResponse(operation: string, error: unknown): CallToolResult {
-    const message = this.determineErrorMessage(operation, error);
-    
+    const message = error instanceof Error ? error.message : 'System error occurred';
+    const data = { error: `Failed to ${operation}: ${message}`, isError: true };
+
     return {
-      content: [{
-        type: "text",
-        text: JSON.stringify({
-          error: message,
-          isError: true
-        }, null, 2)
-      }],
+      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
       isError: true,
     };
   }
 
-  /**
-   * Creates a success response with a standardized format
-   */
   static createSuccessResponse(message: string): CallToolResult {
     return {
       content: [{ type: "text", text: message }],
@@ -50,35 +37,11 @@ export class ErrorResponseFactory {
     };
   }
 
-  /**
-   * Creates a JSON success response for operations that return JSON
-   */
   static createJsonSuccessResponse(data: unknown): CallToolResult {
     return {
-      content: [{
-        type: "text",
-        text: JSON.stringify(data, null, 2)
-      }],
+      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
       isError: false,
     };
-  }
-
-  /**
-   * Determines the appropriate error message based on error type
-   */
-  private static determineErrorMessage(operation: string, error: unknown): string {
-    if (error instanceof ValidationError) {
-      return `Input validation failed: ${error.message}`;
-    }
-    
-    if (error instanceof Error) {
-      // Only expose system error details in development/debug mode
-      return process.env.NODE_ENV === 'development' || process.env.DEBUG
-        ? `Failed to ${operation}: ${error.message}`
-        : `Failed to ${operation}: System error occurred`;
-    }
-    
-    return `Failed to ${operation}: System error occurred`;
   }
 }
 

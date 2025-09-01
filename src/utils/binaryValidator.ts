@@ -188,9 +188,9 @@ export function findSecureBinaryPath(
 } {
   debugLog('Searching for secure binary path...');
   
-  for (const binaryPath of possiblePaths) {
+    for (const binaryPath of possiblePaths) {
     debugLog(`Validating path: ${binaryPath}`);
-    
+
     const validationResult = validateBinarySecurity(binaryPath, config);
     
     if (validationResult.isValid) {

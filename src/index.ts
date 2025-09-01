@@ -10,16 +10,11 @@ import { readFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
-// 自动向上查找包含 package.json 的目录
+// Find project root by locating package.json
 const __filename = fileURLToPath(import.meta.url);
 let projectRoot = dirname(__filename);
-const maxDepth = 10;
-let depth = 0;
-while (!existsSync(join(projectRoot, "package.json")) && depth < maxDepth) {
-  const parent = dirname(projectRoot);
-  if (parent === projectRoot) break;
-  projectRoot = parent;
-  depth++;
+for (let i = 0; i < 10 && !existsSync(join(projectRoot, "package.json")); i++) {
+  projectRoot = dirname(projectRoot);
 }
 
 const packageJson = JSON.parse(
@@ -32,20 +27,8 @@ const SERVER_CONFIG = {
   version: packageJson.version,
 };
 
-/**
- * Main application entry point
- */
-async function main(): Promise<void> {
-  try {
-    await startServer(SERVER_CONFIG);
-  } catch (error) {
-    debugLog("Unhandled error:", error);
-    process.exit(1);
-  }
-}
-
 // Start the application
-main().catch((error) => {
-  console.error("Critical error:", error);
+startServer(SERVER_CONFIG).catch((error) => {
+  debugLog("Server startup failed:", error);
   process.exit(1);
 });

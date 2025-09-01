@@ -6,6 +6,7 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { debugLog } from "../utils/logger.js";
 import { TOOLS } from "./definitions.js";
+import { MESSAGES } from "../utils/constants.js";
 import {
   handleCreateReminder,
   handleListReminderLists,
@@ -59,7 +60,7 @@ export async function handleToolCall(name: string, args: any): Promise<CallToolR
         default:
           return {
             content: [
-              { type: "text", text: `Unknown reminders action: ${String(action)}` }
+              { type: "text", text: MESSAGES.ERROR.UNKNOWN_ACTION('reminders', String(action)) }
             ],
             isError: true
           };
@@ -75,7 +76,7 @@ export async function handleToolCall(name: string, args: any): Promise<CallToolR
         default:
           return {
             content: [
-              { type: "text", text: `Unknown lists action: ${String(action)}` }
+              { type: "text", text: MESSAGES.ERROR.UNKNOWN_ACTION('lists', String(action)) }
             ],
             isError: true
           };
@@ -86,7 +87,7 @@ export async function handleToolCall(name: string, args: any): Promise<CallToolR
         content: [
           {
             type: "text",
-            text: `Unknown tool: ${name}`,
+            text: MESSAGES.ERROR.UNKNOWN_TOOL(name),
           },
         ],
         isError: true,

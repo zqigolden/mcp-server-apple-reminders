@@ -1,25 +1,22 @@
-/** @type {import('ts-jest').JestConfigWithTsJest} */
+/** @type {import('jest').Config} */
 export default {
-  preset: 'ts-jest/presets/default-esm',
+  preset: 'ts-jest',
   testEnvironment: 'node',
-  extensionsToTreatAsEsm: ['.ts'],
+  transform: {
+    '^.+\\.ts$': ['ts-jest', {
+      tsconfig: {
+        module: 'CommonJS',
+        target: 'ES2020',
+        moduleResolution: 'Node',
+        allowSyntheticDefaultImports: true,
+        esModuleInterop: true,
+        isolatedModules: true,
+        types: ['jest', 'node']
+      }
+    }],
+  },
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
-  },
-  transform: {
-    '^.+\\.tsx?$': [
-      'ts-jest',
-      {
-        useESM: true,
-        tsconfig: {
-          module: 'ES2022',
-          target: 'ES2022',
-          moduleResolution: 'Node16',
-          lib: ['ES2022', 'DOM']
-        }
-      },
-    ],
-    '^.+\\.jsx?$': 'babel-jest',
   },
   testMatch: [
     '<rootDir>/src/**/*.test.ts',
@@ -30,7 +27,6 @@ export default {
     '/dist/',
     '<rootDir>/dist/'
   ],
-  modulePathIgnorePatterns: ['<rootDir>/dist/'],
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.test.ts',
@@ -39,9 +35,4 @@ export default {
     '!src/**/__mocks__/**'
   ],
   setupFilesAfterEnv: ['<rootDir>/src/test-setup.ts'],
-  globals: {
-    'import.meta': {
-      url: 'file:///'
-    }
-  }
 };

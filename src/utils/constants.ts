@@ -186,20 +186,26 @@ export const MESSAGES = {
   
   /** Error messages */
   ERROR: {
-    INPUT_VALIDATION_FAILED: (details: string) => 
+    INPUT_VALIDATION_FAILED: (details: string) =>
       `Input validation failed: ${details}`,
-    
-    SYSTEM_ERROR: (operation: string) => 
+
+    SYSTEM_ERROR: (operation: string) =>
       `Failed to ${operation}: System error occurred`,
-    
+
+    UNKNOWN_TOOL: (name: string) =>
+      `Unknown tool: ${name}`,
+
+    UNKNOWN_ACTION: (tool: string, action: string) =>
+      `Unknown ${tool} action: ${action}`,
+
     BINARY_NOT_AVAILABLE: 'Swift binary not available for permission check',
-    
-    PERMISSION_CHECK_TIMEOUT: (type: string) => 
+
+    PERMISSION_CHECK_TIMEOUT: (type: string) =>
       `${type} permission check timed out`,
-    
-    PERMISSION_CHECK_FAILED: (type: string, error: string) => 
+
+    PERMISSION_CHECK_FAILED: (type: string, error: string) =>
       `Failed to check ${type} permissions: ${error}`,
-    
+
     INSUFFICIENT_PERMISSIONS: '🚫 Insufficient permissions detected',
   }
 } as const;

@@ -12,7 +12,7 @@ jest.mock('fs');
 jest.mock('path');
 jest.mock('url');
 jest.mock('./logger.js');
-jest.mock('./moduleHelpers.js'); // Mock the module helpers
+// Module helpers functionality moved inline
 jest.mock('./binaryValidator.js', () => ({
   findSecureBinaryPath: jest.fn(),
   validateBinarySecurity: jest.fn(),

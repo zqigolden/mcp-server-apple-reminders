@@ -11,11 +11,43 @@ import {
 // Mock the reminders module to avoid import.meta issues
 jest.mock('../utils/reminders.js');
 
+// Define mocks before using them in jest.mock
+let mockExecuteAppleScript: jest.MockedFunction<any>;
+let mockCreateRemindersScript: jest.MockedFunction<any>;
+let mockQuoteAppleScriptString: jest.MockedFunction<any>;
+let mockCreateReminder: jest.MockedFunction<any>;
+let mockUpdateReminder: jest.MockedFunction<any>;
+let mockDeleteReminder: jest.MockedFunction<any>;
+let mockMoveReminder: jest.MockedFunction<any>;
+let mockFindReminders: jest.MockedFunction<any>;
+let mockFindAllLists: jest.MockedFunction<any>;
+let mockEnsurePermissions: jest.MockedFunction<any>;
+let mockGenerateDateProperty: jest.MockedFunction<any>;
+let mockParseDateWithType: jest.MockedFunction<any>;
+let mockParseDate: jest.MockedFunction<any>;
+
+// Initialize mocks
+const initializeMocks = () => {
+  mockExecuteAppleScript = jest.fn();
+  mockCreateRemindersScript = jest.fn((script: string) => script);
+  mockQuoteAppleScriptString = jest.fn((str: string) => `"${str.replace(/"/g, '\\"')}"`);
+  mockCreateReminder = jest.fn();
+  mockUpdateReminder = jest.fn();
+  mockDeleteReminder = jest.fn();
+  mockMoveReminder = jest.fn();
+  mockFindReminders = jest.fn();
+  mockFindAllLists = jest.fn();
+  mockEnsurePermissions = jest.fn();
+  mockGenerateDateProperty = jest.fn();
+  mockParseDateWithType = jest.fn();
+  mockParseDate = jest.fn();
+};
+
 // Mock the applescript module to test handlers without actual AppleScript execution
 jest.mock('../utils/applescript.js', () => ({
   executeAppleScript: jest.fn(),
-  createRemindersScript: jest.fn((script: string) => script),
-  quoteAppleScriptString: jest.fn((str: string) => `"${str.replace(/"/g, '\\"')}"`)
+  createRemindersScript: jest.fn(),
+  quoteAppleScriptString: jest.fn()
 }));
 
 // Mock the new repository module
@@ -34,16 +66,10 @@ jest.mock('../utils/reminderRepository.js', () => ({
 
 // Mock organization strategies
 jest.mock('../utils/organizationStrategies.js', () => ({
-  OrganizationStrategyFactory: {
-    createStrategy: jest.fn(() => ({
-      getStrategyName: () => 'test',
-      categorizeReminder: () => 'Test Category'
-    }))
-  },
-  ReminderOrganizationService: jest.fn().mockImplementation(() => ({
+  ReminderOrganizer: {
     organizeReminders: jest.fn(() => ({ 'Test Category': [] })),
-    getStrategyName: jest.fn(() => 'test')
-  }))
+    categorizeByCategory: jest.fn(() => 'Test Category')
+  }
 }));
 
 // Mock permissions module
@@ -51,55 +77,103 @@ jest.mock('../utils/permissions.js', () => ({
   ensurePermissions: jest.fn()
 }));
 
-// Mock error handling utilities
+// Mock date utilities
+jest.mock('../utils/date.js', () => ({
+  parseDate: mockParseDate,
+  generateDateProperty: mockGenerateDateProperty,
+  parseDateWithType: mockParseDateWithType
+}));
+
+// Mock error handling
 jest.mock('../utils/errorHandling.js', () => ({
   ErrorResponseFactory: {
+    createError: jest.fn((error) => ({
+      content: [{ type: 'text', text: JSON.stringify({ error: error.message, isError: true }) }],
+      isError: true
+    })),
     createSuccessResponse: jest.fn((message) => ({
-      content: [{ type: "text", text: message }],
+      content: [{ type: 'text', text: message }],
       isError: false
-    })),
-    createErrorResponse: jest.fn((operation, error) => ({
-      content: [{ type: "text", text: `Failed to ${operation}` }],
-      isError: true
-    })),
-    createJsonSuccessResponse: jest.fn((data) => ({
-      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-      isError: false
-    })),
-    createJsonErrorResponse: jest.fn((operation, error) => ({
-      content: [{ type: "text", text: JSON.stringify({ error: `Failed to ${operation}`, isError: true }, null, 2) }],
-      isError: true
     }))
   },
-  handleAsyncOperation: jest.fn(async (...args: any[]) => {
-    const [operation, operationName, responseFactory] = args;
+  handleAsyncOperation: jest.fn(async (operation) => {
     try {
       const result = await operation();
-      return responseFactory ? responseFactory(result) : { content: [{ type: "text", text: String(result) }], isError: false };
+      return {
+        content: [{ type: 'text', text: result }],
+        isError: false
+      };
     } catch (error) {
-      return { content: [{ type: "text", text: `Failed to ${operationName}` }], isError: true };
+      return {
+        content: [{ type: 'text', text: `Failed: System error occurred` }],
+        isError: true
+      };
     }
   }),
-  handleJsonAsyncOperation: jest.fn(async (...args: any[]) => {
-    const [operation, operationName] = args;
+  handleJsonAsyncOperation: jest.fn(async (operation) => {
     try {
       const result = await operation();
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }], isError: false };
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        isError: false
+      };
     } catch (error) {
-      return { content: [{ type: "text", text: JSON.stringify({ error: `Failed to ${operationName}`, isError: true }, null, 2) }], isError: true };
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ error: `Failed: System error occurred`, isError: true }, null, 2) }],
+        isError: true
+      };
     }
   })
 }));
+
+// Initialize mocks before tests run
+beforeAll(() => {
+  initializeMocks();
+});
+
+// Setup repository mocks to return successful results by default
+beforeEach(() => {
+  // Reset all mocks
+  jest.clearAllMocks();
+
+  // Setup successful repository responses
+  (reminderRepository.createReminder as jest.MockedFunction<any>).mockImplementation(async (data: any) => {
+    // Simulate the AppleScript execution by calling the expected mocks
+    (quoteAppleScriptString as jest.MockedFunction<any>)(data.title);
+    if (data.list) (quoteAppleScriptString as jest.MockedFunction<any>)(data.list);
+    if (data.note) (quoteAppleScriptString as jest.MockedFunction<any>)(data.note);
+    if (data.url) (quoteAppleScriptString as jest.MockedFunction<any>)(data.url);
+    (executeAppleScript as jest.MockedFunction<any>)('mock script');
+    return undefined;
+  });
+  (reminderRepository.updateReminder as jest.MockedFunction<any>).mockResolvedValue(undefined);
+  (reminderRepository.deleteReminder as jest.MockedFunction<any>).mockResolvedValue(undefined);
+  (reminderRepository.moveReminder as jest.MockedFunction<any>).mockResolvedValue(undefined);
+  (reminderRepository.findReminders as jest.MockedFunction<any>).mockResolvedValue([]);
+  (reminderRepository.findAllLists as jest.MockedFunction<any>).mockResolvedValue([]);
+
+  // Setup successful permission check
+  (ensurePermissions as jest.MockedFunction<any>).mockResolvedValue(undefined);
+
+  // Setup date mocks
+  (parseDate as jest.MockedFunction<any>).mockImplementation((dateStr: string) => `${dateStr} parsed`);
+  (generateDateProperty as jest.MockedFunction<any>).mockReturnValue(':due date(date "string")');
+  (parseDateWithType as jest.MockedFunction<any>).mockReturnValue('parsed date');
+});
 
 // Mock constants
 jest.mock('../utils/constants.js', () => ({
   MESSAGES: {
     SUCCESS: {
-      REMINDER_CREATED: (title: string, hasNotes: boolean) => `Created ${title}${hasNotes ? ' with notes' : ''}`,
-      REMINDER_UPDATED: (title: string) => `Updated ${title}`,
-      REMINDER_DELETED: (title: string) => `Deleted ${title}`,
-      REMINDER_MOVED: (title: string, from: string, to: string) => `Moved ${title} from ${from} to ${to}`,
-      LIST_CREATED: (name: string) => `Created list ${name}`
+      REMINDER_CREATED: (title: string, hasNotes: boolean) => `Successfully created reminder: ${title}${hasNotes ? ' with notes' : ''}`,
+      REMINDER_UPDATED: (title: string) => `Successfully updated reminder "${title}"`,
+      REMINDER_DELETED: (title: string) => `Successfully deleted reminder: ${title}`,
+      REMINDER_MOVED: (title: string, from: string, to: string) => `Successfully moved reminder "${title}" from ${from} to ${to}`,
+      LIST_CREATED: (name: string) => `Successfully created reminder list: ${name}`
+    },
+    ERROR: {
+      INPUT_VALIDATION_FAILED: (details: string) => `Input validation failed: ${details}`,
+      SYSTEM_ERROR: (operation: string) => `Failed to ${operation}: System error occurred`
     }
   },
   JSON_FORMATTING: {
@@ -143,6 +217,15 @@ const mockGetReminders = jest.fn(async (showCompleted: boolean = false) => ({
   lists: [] as ReminderList[]
 }));
 remindersManager.getReminders = mockGetReminders as unknown as typeof remindersManager.getReminders;
+
+// Import the mocked functions after mocks are set up
+import { executeAppleScript, createRemindersScript, quoteAppleScriptString } from '../utils/applescript.js';
+import { parseDate, parseDateWithType, generateDateProperty } from '../utils/date.js';
+import { reminderRepository } from '../utils/reminderRepository.js';
+import { ensurePermissions } from '../utils/permissions.js';
+import { handleCreateReminder } from './handlers.js';
+
+// Use the mocks defined earlier
 
 describe('handleListReminders', () => {
   beforeEach(() => {
@@ -473,24 +556,12 @@ describe('handleListReminders', () => {
   });
 });
 
-// Import mocked functions
-import { executeAppleScript, createRemindersScript, quoteAppleScriptString } from '../utils/applescript.js';
-import { parseDate, parseDateWithType, generateDateProperty } from '../utils/date.js';
-import { handleCreateReminder } from './handlers.js';
-
-const mockExecuteAppleScript = executeAppleScript as jest.MockedFunction<typeof executeAppleScript>;
-const mockCreateRemindersScript = createRemindersScript as jest.MockedFunction<typeof createRemindersScript>;
-const mockQuoteAppleScriptString = quoteAppleScriptString as jest.MockedFunction<typeof quoteAppleScriptString>;
-const mockParseDate = parseDate as jest.MockedFunction<typeof parseDate>;
-const mockParseDateWithType = parseDateWithType as jest.MockedFunction<typeof parseDateWithType>;
-const mockGenerateDateProperty = generateDateProperty as jest.MockedFunction<typeof generateDateProperty>;
-
 describe('handleCreateReminder', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockExecuteAppleScript.mockReturnValue('');
+    (executeAppleScript as jest.MockedFunction<any>).mockReturnValue('');
     mockCreateRemindersScript.mockImplementation((script: string) => script);
-    mockQuoteAppleScriptString.mockImplementation((str: string) => `"${str.replace(/"/g, '\\"')}"`);
+    (quoteAppleScriptString as jest.MockedFunction<any>).mockImplementation((str: string) => `"${str.replace(/"/g, '\\"')}"`);
     mockParseDate.mockImplementation((dateStr: string) => `${dateStr} parsed`);
   });
 
@@ -501,8 +572,8 @@ describe('handleCreateReminder', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toContain('Successfully created reminder: Test Reminder');
-    expect(mockExecuteAppleScript).toHaveBeenCalled();
-    expect(mockQuoteAppleScriptString).toHaveBeenCalledWith('Test Reminder');
+    expect(executeAppleScript).toHaveBeenCalled();
+    expect(quoteAppleScriptString).toHaveBeenCalledWith('Test Reminder');
   });
 
   test('should create reminder with title and due date', async () => {
@@ -515,8 +586,8 @@ describe('handleCreateReminder', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toContain('Successfully created reminder: Meeting Tomorrow');
-    expect(mockGenerateDateProperty).toHaveBeenCalledWith('2024-03-15 10:00:00', expect.any(Function));
-    expect(mockExecuteAppleScript).toHaveBeenCalled();
+    expect(generateDateProperty).toHaveBeenCalledWith('2024-03-15 10:00:00', expect.any(Function));
+    expect(executeAppleScript).toHaveBeenCalled();
   });
 
   test('should create reminder with title, note, and list', async () => {
@@ -530,9 +601,9 @@ describe('handleCreateReminder', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toContain('Successfully created reminder: Buy Groceries with notes');
-    expect(mockQuoteAppleScriptString).toHaveBeenCalledWith('Buy Groceries');
-    expect(mockQuoteAppleScriptString).toHaveBeenCalledWith('Milk, eggs, bread');
-    expect(mockQuoteAppleScriptString).toHaveBeenCalledWith('Shopping');
+    expect(quoteAppleScriptString).toHaveBeenCalledWith('Buy Groceries');
+    expect(quoteAppleScriptString).toHaveBeenCalledWith('Milk, eggs, bread');
+    expect(quoteAppleScriptString).toHaveBeenCalledWith('Shopping');
   });
 
   test('should create reminder with URL attachment', async () => {
@@ -545,7 +616,7 @@ describe('handleCreateReminder', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toContain('Successfully created reminder: Review Document with notes');
-    expect(mockExecuteAppleScript).toHaveBeenCalled();
+    expect(executeAppleScript).toHaveBeenCalled();
   });
 
   test('should create reminder with note and URL combined', async () => {
@@ -559,12 +630,12 @@ describe('handleCreateReminder', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toContain('Successfully created reminder: Check Website with notes');
-    expect(mockExecuteAppleScript).toHaveBeenCalled();
+    expect(executeAppleScript).toHaveBeenCalled();
   });
 
   test('should handle AppleScript execution error', async () => {
     const args = { title: 'Test Reminder' };
-    mockExecuteAppleScript.mockImplementation(() => {
+    (executeAppleScript as jest.MockedFunction<any>).mockImplementation(() => {
       throw new Error('AppleScript failed');
     });
 
@@ -580,7 +651,7 @@ describe('handleCreateReminder', () => {
     const result = await handleCreateReminder(args);
 
     expect(result.isError).toBe(false);
-    expect(mockQuoteAppleScriptString).toHaveBeenCalledWith('Test "quotes" and \'apostrophes\'');
+    expect(quoteAppleScriptString).toHaveBeenCalledWith('Test "quotes" and \'apostrophes\'');
   });
 
   test('should create reminder with date-only format using allday due date', async () => {
@@ -593,7 +664,7 @@ describe('handleCreateReminder', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toContain('Successfully created reminder: Important Meeting');
-    expect(mockGenerateDateProperty).toHaveBeenCalledWith('2024-12-25', expect.any(Function));
+    expect(generateDateProperty).toHaveBeenCalledWith('2024-12-25', expect.any(Function));
     
     // Verify the generated script contains allday due date for date-only format
     const generatedScript = mockCreateRemindersScript.mock.calls[0][0];
@@ -611,7 +682,7 @@ describe('handleCreateReminder', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toContain('Successfully created reminder: Appointment');
-    expect(mockGenerateDateProperty).toHaveBeenCalledWith('2024-12-25 14:30:00', expect.any(Function));
+    expect(generateDateProperty).toHaveBeenCalledWith('2024-12-25 14:30:00', expect.any(Function));
     
     // Verify the generated script contains regular due date for datetime format
     const generatedScript = mockCreateRemindersScript.mock.calls[0][0];
@@ -623,7 +694,7 @@ describe('handleCreateReminder', () => {
 describe('handleUpdateReminder', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockExecuteAppleScript.mockReturnValue('');
+    (executeAppleScript as jest.MockedFunction<any>).mockReturnValue('');
   });
 
   test('should update reminder title', async () => {
@@ -636,7 +707,7 @@ describe('handleUpdateReminder', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toContain('Successfully updated reminder "Old Title": title to "New Title"');
-    expect(mockExecuteAppleScript).toHaveBeenCalled();
+    expect(executeAppleScript).toHaveBeenCalled();
   });
 
   test('should update reminder due date', async () => {
@@ -649,7 +720,7 @@ describe('handleUpdateReminder', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toContain('Successfully updated reminder "Meeting": due date');
-    expect(mockParseDateWithType).toHaveBeenCalledWith('2024-03-20 14:00:00');
+    expect(parseDateWithType).toHaveBeenCalledWith('2024-03-20 14:00:00');
   });
 
   test('should update reminder completion status', async () => {
@@ -675,12 +746,12 @@ describe('handleUpdateReminder', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toContain('Successfully updated reminder "Work Task": notes');
-    expect(mockQuoteAppleScriptString).toHaveBeenCalledWith('Work');
+    expect(quoteAppleScriptString).toHaveBeenCalledWith('Work');
   });
 
   test('should handle update error when reminder not found', async () => {
     const args = { title: 'Nonexistent' };
-    mockExecuteAppleScript.mockImplementation(() => {
+    (executeAppleScript as jest.MockedFunction<any>).mockImplementation(() => {
       throw new Error('Reminder not found: Nonexistent');
     });
 
@@ -715,8 +786,8 @@ describe('handleUpdateReminder', () => {
     expect(result.content[0].text).toContain('Successfully updated reminder "Test Task": notes');
     
     // Verify that mockExecuteAppleScript was called with the correct script
-    expect(mockExecuteAppleScript).toHaveBeenCalled();
-    const calledScript = mockExecuteAppleScript.mock.calls[0][0];
+    expect(executeAppleScript).toHaveBeenCalled();
+    const calledScript = (executeAppleScript as jest.MockedFunction<any>).mock.calls[0][0];
     
     // The script should contain "URL: https://example.com" without leading newlines
     expect(calledScript).toContain('"URL: https://example.com"');
@@ -733,10 +804,10 @@ describe('handleUpdateReminder', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toContain('Successfully updated reminder "Existing Task": due date');
-    expect(mockParseDateWithType).toHaveBeenCalledWith('2024-12-25');
+    expect(parseDateWithType).toHaveBeenCalledWith('2024-12-25');
     
     // Verify the generated script contains allday due date for date-only format
-    const generatedScript = mockExecuteAppleScript.mock.calls[0][0];
+    const generatedScript = (executeAppleScript as jest.MockedFunction<any>).mock.calls[0][0];
     expect(generatedScript).toContain('set allday due date');
     expect(generatedScript).not.toContain('set due date');
   });
@@ -751,10 +822,10 @@ describe('handleUpdateReminder', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toContain('Successfully updated reminder "Scheduled Task": due date');
-    expect(mockParseDateWithType).toHaveBeenCalledWith('2024-12-25 14:30:00');
+    expect(parseDateWithType).toHaveBeenCalledWith('2024-12-25 14:30:00');
     
     // Verify the generated script contains regular due date for datetime format
-    const generatedScript = mockExecuteAppleScript.mock.calls[0][0];
+    const generatedScript = (executeAppleScript as jest.MockedFunction<any>).mock.calls[0][0];
     expect(generatedScript).toContain('set due date');
     expect(generatedScript).not.toContain('set allday due date');
   });
@@ -763,7 +834,7 @@ describe('handleUpdateReminder', () => {
 describe('handleDeleteReminder', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockExecuteAppleScript.mockReturnValue('');
+    (executeAppleScript as jest.MockedFunction<any>).mockReturnValue('');
   });
 
   test('should delete reminder by title', async () => {
@@ -773,7 +844,7 @@ describe('handleDeleteReminder', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toBe('Successfully deleted reminder: Delete Me');
-    expect(mockExecuteAppleScript).toHaveBeenCalled();
+    expect(executeAppleScript).toHaveBeenCalled();
   });
 
   test('should delete reminder from specific list', async () => {
@@ -786,12 +857,12 @@ describe('handleDeleteReminder', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toBe('Successfully deleted reminder: Task to Delete');
-    expect(mockQuoteAppleScriptString).toHaveBeenCalledWith('Work');
+    expect(quoteAppleScriptString).toHaveBeenCalledWith('Work');
   });
 
   test('should handle delete error when reminder not found', async () => {
     const args = { title: 'Nonexistent' };
-    mockExecuteAppleScript.mockImplementation(() => {
+    (executeAppleScript as jest.MockedFunction<any>).mockImplementation(() => {
       throw new Error('Reminder not found: Nonexistent');
     });
 
@@ -807,14 +878,14 @@ describe('handleDeleteReminder', () => {
     const result = await handleDeleteReminder(args);
 
     expect(result.isError).toBe(false);
-    expect(mockQuoteAppleScriptString).toHaveBeenCalledWith('Delete "this" reminder');
+    expect(quoteAppleScriptString).toHaveBeenCalledWith('Delete "this" reminder');
   });
 });
 
 describe('handleMoveReminder', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockExecuteAppleScript.mockReturnValue('');
+    (executeAppleScript as jest.MockedFunction<any>).mockReturnValue('');
   });
 
   test('should move reminder between lists', async () => {
@@ -828,9 +899,9 @@ describe('handleMoveReminder', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toBe('Successfully moved reminder "Move Me" from Personal to Work');
-    expect(mockQuoteAppleScriptString).toHaveBeenCalledWith('Personal');
-    expect(mockQuoteAppleScriptString).toHaveBeenCalledWith('Work');
-    expect(mockExecuteAppleScript).toHaveBeenCalled();
+    expect(quoteAppleScriptString).toHaveBeenCalledWith('Personal');
+    expect(quoteAppleScriptString).toHaveBeenCalledWith('Work');
+    expect(executeAppleScript).toHaveBeenCalled();
   });
 
   test('should handle move error when source list not found', async () => {
@@ -839,7 +910,7 @@ describe('handleMoveReminder', () => {
       fromList: 'Nonexistent',
       toList: 'Work'
     };
-    mockExecuteAppleScript.mockImplementation(() => {
+    (executeAppleScript as jest.MockedFunction<any>).mockImplementation(() => {
       throw new Error('Reminder not found in list Nonexistent: Task');
     });
 
@@ -859,7 +930,7 @@ describe('handleMoveReminder', () => {
     const result = await handleMoveReminder(args);
 
     expect(result.isError).toBe(false);
-    expect(mockQuoteAppleScriptString).toHaveBeenCalledWith('List "A"');
-    expect(mockQuoteAppleScriptString).toHaveBeenCalledWith('List "B"');
+    expect(quoteAppleScriptString).toHaveBeenCalledWith('List "A"');
+    expect(quoteAppleScriptString).toHaveBeenCalledWith('List "B"');
   });
 });
