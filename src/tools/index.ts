@@ -3,19 +3,20 @@
  * Exports tool definitions and handler functions
  */
 
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { debugLog } from "../utils/logger.js";
-import { TOOLS } from "./definitions.js";
-import { MESSAGES } from "../utils/constants.js";
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { ListsToolArgs, RemindersToolArgs } from '../types/index.js';
+import { MESSAGES } from '../utils/constants.js';
+import { debugLog } from '../utils/logger.js';
+import { TOOLS } from './definitions.js';
 import {
   handleCreateReminder,
+  handleCreateReminderList,
+  handleDeleteReminder,
   handleListReminderLists,
   handleListReminders,
-  handleUpdateReminder,
-  handleDeleteReminder,
   handleMoveReminder,
-  handleCreateReminderList
-} from "./handlers.js";
+  handleUpdateReminder,
+} from './handlers.js';
 
 /**
  * Routes tool calls to the appropriate handler based on the tool name
@@ -23,26 +24,31 @@ import {
  * @param args - Arguments for the tool
  * @returns Result of the tool call
  */
-export async function handleToolCall(name: string, args: any): Promise<CallToolResult> {
+export async function handleToolCall(
+  name: string,
+  args: RemindersToolArgs | ListsToolArgs,
+): Promise<CallToolResult> {
   debugLog(`Handling tool call: ${name} with args:`, args);
 
   switch (name) {
-    case "reminders": {
+    case 'reminders': {
       const action = args?.action;
       switch (action) {
-        case "list":
+        case 'list':
           return handleListReminders(args);
-        case "create":
+        case 'create':
           return handleCreateReminder(args);
-        case "update":
+        case 'update':
           return handleUpdateReminder(args);
-        case "delete":
+        case 'delete':
           return handleDeleteReminder(args);
-        case "move":
+        case 'move':
           return handleMoveReminder(args);
-        case "organize": {
+        case 'organize': {
           // Translate to batch operation for the update handler
-          const batchArgs = {
+          const batchArgs: RemindersToolArgs = {
+            action: 'update',
+            title: 'batch',
             batchOperation: {
               enabled: true,
               strategy: args?.strategy,
@@ -51,34 +57,46 @@ export async function handleToolCall(name: string, args: any): Promise<CallToolR
               filter: {
                 completed: args?.completed,
                 search: args?.search,
-                dueWithin: args?.dueWithin
-              }
-            }
+                dueWithin: args?.dueWithin,
+              },
+            },
           };
           return handleUpdateReminder(batchArgs);
         }
         default:
           return {
             content: [
-              { type: "text", text: MESSAGES.ERROR.UNKNOWN_ACTION('reminders', String(action)) }
+              {
+                type: 'text',
+                text: MESSAGES.ERROR.UNKNOWN_ACTION(
+                  'reminders',
+                  String(action),
+                ),
+              },
             ],
-            isError: true
+            isError: true,
           };
       }
     }
-    case "lists": {
+    case 'lists': {
       const action = args?.action;
       switch (action) {
-        case "list":
-          return handleListReminderLists({});
-        case "create":
-          return handleCreateReminderList({ name: args?.name });
+        case 'list':
+          return handleListReminderLists({ action: 'list' });
+        case 'create':
+          return handleCreateReminderList({
+            action: 'create',
+            name: (args as ListsToolArgs)?.name,
+          });
         default:
           return {
             content: [
-              { type: "text", text: MESSAGES.ERROR.UNKNOWN_ACTION('lists', String(action)) }
+              {
+                type: 'text',
+                text: MESSAGES.ERROR.UNKNOWN_ACTION('lists', String(action)),
+              },
             ],
-            isError: true
+            isError: true,
           };
       }
     }
@@ -86,7 +104,7 @@ export async function handleToolCall(name: string, args: any): Promise<CallToolR
       return {
         content: [
           {
-            type: "text",
+            type: 'text',
             text: MESSAGES.ERROR.UNKNOWN_TOOL(name),
           },
         ],
