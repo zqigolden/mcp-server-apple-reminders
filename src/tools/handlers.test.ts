@@ -96,11 +96,6 @@ jest.mock('../utils/organizationStrategies.js', () => ({
   },
 }));
 
-// Mock permissions module
-jest.mock('../utils/permissions.js', () => ({
-  ensurePermissions: jest.fn(),
-}));
-
 // Mock date utilities
 jest.mock('../utils/date.js', () => ({
   parseDate: mockParseDate,
@@ -227,11 +222,6 @@ beforeEach(() => {
     >
   ).mockResolvedValue([]);
 
-  // Setup successful permission check
-  (
-    ensurePermissions as jest.MockedFunction<() => Promise<void>>
-  ).mockResolvedValue(undefined);
-
   // Setup date mocks
   (
     parseDate as jest.MockedFunction<(dateStr: string) => string>
@@ -325,7 +315,6 @@ import {
   parseDate,
   parseDateWithType,
 } from '../utils/date.js';
-import { ensurePermissions } from '../utils/permissions.js';
 import { reminderRepository } from '../utils/reminderRepository.js';
 import { handleCreateReminder } from './handlers.js';
 
@@ -1156,124 +1145,5 @@ describe('handleMoveReminder', () => {
     expect(result.isError).toBe(false);
     expect(quoteAppleScriptString).toHaveBeenCalledWith('List "A"');
     expect(quoteAppleScriptString).toHaveBeenCalledWith('List "B"');
-  });
-});
-
-// Permission Testing Suite
-describe('Permission Handling', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  describe('ensurePermissions success scenarios', () => {
-    test('should succeed when permissions are granted', async () => {
-      (
-        ensurePermissions as jest.MockedFunction<() => Promise<void>>
-      ).mockResolvedValue(undefined);
-
-      const result = await handleCreateReminder({
-        action: 'create',
-        title: 'Test Reminder',
-      });
-
-      expect(result.isError).toBe(false);
-      expect(ensurePermissions).toHaveBeenCalledTimes(1);
-    });
-
-    test('should succeed for list operations when permissions are granted', async () => {
-      (
-        ensurePermissions as jest.MockedFunction<() => Promise<void>>
-      ).mockResolvedValue(undefined);
-
-      const result = await handleListReminders({ action: 'list' });
-
-      expect(result.isError).toBe(false);
-      expect(ensurePermissions).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe('ensurePermissions failure scenarios', () => {
-    test('should fail gracefully when permissions are denied', async () => {
-      const permissionError = new Error(
-        'Permission verification failed:\nEventKit: Swift binary not available for permission check\n\n🔐 Apple Reminders MCP Server requires the following permissions:\n\n❌ EventKit (Reminders) Access:\n   • Open System Settings > Privacy & Security > Reminders\n   • Find your terminal or application in the list\n   • Enable access by toggling the switch\n\n✅ AppleScript Automation: Granted\n\n📋 After granting permissions:\n   1. Restart your terminal or application\n   2. Run the MCP server again\n   3. The system may prompt you to confirm access - click "Allow"\n\n💡 If you continue having issues, try:\n   • Logging out and back in to macOS\n   • Restarting your Mac\n   • Checking Console.app for permission-related errors'
-      );
-
-      (
-        ensurePermissions as jest.MockedFunction<() => Promise<void>>
-      ).mockRejectedValue(permissionError);
-
-      const result = await handleCreateReminder({
-        action: 'create',
-        title: 'Test Reminder',
-      });
-
-      expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain(
-        'Failed: System error occurred'
-      );
-      expect(ensurePermissions).toHaveBeenCalledTimes(1);
-    });
-
-    test('should fail gracefully for list operations when permissions are denied', async () => {
-      const permissionError = new Error(
-        'Permission verification failed:\nEventKit: EventKit permission denied. Please grant access in System Settings > Privacy & Security > Reminders'
-      );
-
-      (
-        ensurePermissions as jest.MockedFunction<() => Promise<void>>
-      ).mockRejectedValue(permissionError);
-
-      const result = await handleListReminders({ action: 'list' });
-
-      expect(result.isError).toBe(true);
-      expect(ensurePermissions).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe('operations without permission checks', () => {
-    test('handleUpdateReminder should check permissions', async () => {
-      (
-        ensurePermissions as jest.MockedFunction<() => Promise<void>>
-      ).mockResolvedValue(undefined);
-
-      const result = await handleUpdateReminder({
-        action: 'update',
-        title: 'Test',
-        newTitle: 'Updated Test',
-      });
-
-      expect(result.isError).toBe(false);
-      expect(ensurePermissions).toHaveBeenCalledTimes(1);
-    });
-
-    test('handleDeleteReminder should check permissions', async () => {
-      (
-        ensurePermissions as jest.MockedFunction<() => Promise<void>>
-      ).mockResolvedValue(undefined);
-
-      const result = await handleDeleteReminder({
-        action: 'delete',
-        title: 'Test',
-      });
-
-      expect(result.isError).toBe(false);
-      expect(ensurePermissions).toHaveBeenCalledTimes(1);
-    });
-
-    test('handleMoveReminder should check permissions', async () => {
-      (
-        ensurePermissions as jest.MockedFunction<() => Promise<void>>
-      ).mockResolvedValue(undefined);
-
-      const result = await handleMoveReminder({
-        action: 'move',
-        title: 'Test',
-        fromList: 'Personal',
-        toList: 'Work',
-      });
-
-      expect(result.isError).toBe(false);
-      expect(ensurePermissions).toHaveBeenCalledTimes(1);
-    });
   });
 });

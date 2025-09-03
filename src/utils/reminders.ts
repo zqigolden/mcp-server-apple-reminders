@@ -9,6 +9,7 @@ import {
   validateBinarySecurity,
 } from './binaryValidator.js';
 import { logger } from './logger.js';
+import { findProjectRoot } from './projectUtils.js';
 
 /**
  * Class to interact with Apple Reminders using the Swift binary

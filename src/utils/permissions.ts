@@ -6,7 +6,6 @@
  */
 
 import { spawn } from 'node:child_process';
-import fs from 'node:fs';
 import path from 'node:path';
 import {
   BinaryValidationError,
@@ -24,6 +23,7 @@ import {
   TIMEOUTS,
 } from './constants.js';
 import { logger } from './logger.js';
+import { findProjectRoot } from './projectUtils.js';
 
 // Consolidated interfaces
 export interface PermissionStatus {
@@ -84,21 +84,6 @@ function getBinaryPath(): string | null {
     logger.error(`Failed to initialize binary path: ${error}`);
     return null;
   }
-}
-
-/**
- * Finds project root by searching for package.json
- */
-function findProjectRoot(): string {
-  // Find project root by searching for package.json
-  let projectRoot = process.cwd();
-  let depth = 0;
-
-  while (!fs.existsSync(path.join(projectRoot, 'package.json')) && depth < 10) {
-    projectRoot = path.dirname(projectRoot);
-    depth++;
-  }
-  return projectRoot;
 }
 
 // Permission checking functions

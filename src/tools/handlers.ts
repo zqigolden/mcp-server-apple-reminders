@@ -35,6 +35,20 @@ import {
 } from '../validation/schemas.js';
 
 /**
+ * Extracts validated arguments from tool args by removing the action field
+ * @param args - Tool arguments containing action field
+ * @param schema - Validation schema to apply
+ * @returns Validated arguments without action field
+ */
+function extractAndValidateArgs<T>(
+  args: RemindersToolArgs | ListsToolArgs | undefined,
+  schema: any,
+): T {
+  const { action: _ignored, ...rest } = args ?? {};
+  return validateInput(schema, rest);
+}
+
+/**
  * Creates a new reminder
  * @param args - Arguments for creating a reminder
  * @returns Result of the operation
@@ -44,8 +58,7 @@ export async function handleCreateReminder(
 ): Promise<CallToolResult> {
   return handleAsyncOperation(
     async () => {
-      const { action: _ignored, ...rest } = args ?? {};
-      const validatedArgs = validateInput(CreateReminderSchema, rest);
+      const validatedArgs = extractAndValidateArgs<any>(args, CreateReminderSchema);
 
       const reminderData: CreateReminderData = {
         title: validatedArgs.title,
@@ -75,8 +88,7 @@ export async function handleUpdateReminder(
 ): Promise<CallToolResult> {
   return handleAsyncOperation(
     async () => {
-      const { action: _ignored, ...rest } = args ?? {};
-      const validatedArgs = validateInput(UpdateReminderSchema, rest);
+      const validatedArgs = extractAndValidateArgs<any>(args, UpdateReminderSchema);
 
       if (validatedArgs.batchOperation?.enabled) {
         return await processBatchOrganization(validatedArgs.batchOperation);
@@ -235,8 +247,7 @@ export async function handleDeleteReminder(
 ): Promise<CallToolResult> {
   return handleAsyncOperation(
     async () => {
-      const { action: _ignored, ...rest } = args ?? {};
-      const validatedArgs = validateInput(DeleteReminderSchema, rest);
+      const validatedArgs = extractAndValidateArgs<any>(args, DeleteReminderSchema);
 
       await reminderRepository.deleteReminder(
         validatedArgs.title,
@@ -260,8 +271,7 @@ export async function handleMoveReminder(
 ): Promise<CallToolResult> {
   return handleAsyncOperation(
     async () => {
-      const { action: _ignored, ...rest } = args ?? {};
-      const validatedArgs = validateInput(MoveReminderSchema, rest);
+      const validatedArgs = extractAndValidateArgs<any>(args, MoveReminderSchema);
 
       const moveData: MoveReminderData = {
         title: validatedArgs.title,
@@ -334,8 +344,7 @@ export async function handleListReminders(
   args: RemindersToolArgs,
 ): Promise<CallToolResult> {
   return handleJsonAsyncOperation(async () => {
-    const { action: _ignored, ...rest } = args ?? {};
-    const validatedArgs = validateInput(ListRemindersSchema, rest);
+    const validatedArgs = extractAndValidateArgs<any>(args, ListRemindersSchema);
 
     const filters = buildListReminderFilters(validatedArgs);
     const reminders = await reminderRepository.findReminders(filters);
@@ -403,7 +412,7 @@ export async function handleCreateReminderList(
 ): Promise<CallToolResult> {
   return handleAsyncOperation(
     async () => {
-      const validatedArgs = validateInput(CreateReminderListSchema, args);
+      const validatedArgs = extractAndValidateArgs<any>(args, CreateReminderListSchema);
 
       await reminderRepository.createReminderList(validatedArgs.name);
 
