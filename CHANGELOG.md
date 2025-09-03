@@ -9,9 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.3] - 2025-09-03
 
+### Added
+
+- Biome linting for consistent code formatting and quality checks
+- Enhanced development workflow with unified cursor rules and standards
+- Consolidated development guide for improved onboarding
+
+### Changed
+
+- **Refactored**: Enhanced utility classes and improved code organization
+- **Refactored**: Improved server architecture and request handling
+- **Enhanced**: Tool handlers with better error handling and validation
+- **Updated**: TypeScript configuration for better development experience
+- **Improved**: Type definitions and validation schemas for enhanced type safety
+- **Enhanced**: Test suites for improved coverage and reliability
+- **Updated**: Documentation with improved examples and comprehensive guides
+
 ### Fixed
 
 - Improved unicode handling in AppleScript execution
+- Removed unnecessary permission checks from MCP handlers
+- Enhanced deployment process and resolved build issues
+- Extracted common patterns to reduce code duplication
 
 ## [0.7.2] - 2025-01-13
 
