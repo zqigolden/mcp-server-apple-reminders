@@ -17,7 +17,6 @@ import {
   handleJsonAsyncOperation,
 } from '../utils/errorHandling.js';
 import { ReminderOrganizer } from '../utils/organizationStrategies.js';
-import { ensurePermissions } from '../utils/permissions.js';
 import {
   type CreateReminderData,
   type MoveReminderData,
@@ -45,8 +44,6 @@ export async function handleCreateReminder(
 ): Promise<CallToolResult> {
   return handleAsyncOperation(
     async () => {
-      await ensurePermissions();
-
       const { action: _ignored, ...rest } = args ?? {};
       const validatedArgs = validateInput(CreateReminderSchema, rest);
 
@@ -294,8 +291,6 @@ export async function handleListReminderLists(
   args?: ListsToolArgs,
 ): Promise<CallToolResult> {
   return handleJsonAsyncOperation(async () => {
-    await ensurePermissions();
-
     const cleaned =
       args && typeof args === 'object'
         ? (() => {
@@ -339,8 +334,6 @@ export async function handleListReminders(
   args: RemindersToolArgs,
 ): Promise<CallToolResult> {
   return handleJsonAsyncOperation(async () => {
-    await ensurePermissions();
-
     const { action: _ignored, ...rest } = args ?? {};
     const validatedArgs = validateInput(ListRemindersSchema, rest);
 

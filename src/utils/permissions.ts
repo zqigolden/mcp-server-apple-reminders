@@ -64,8 +64,22 @@ function getBinaryPath(): string | null {
       possiblePaths,
       getEnvironmentBinaryConfig(),
     );
-    cachedBinaryPath = securePath;
-    return securePath;
+
+    if (securePath) {
+      logger.debug(`✅ Swift binary found at: ${securePath}`);
+      cachedBinaryPath = securePath;
+      return securePath;
+    }
+
+    // Fallback to default path - same logic as reminders.ts
+    const defaultPath = path.resolve(
+      projectRoot,
+      BINARY_PATHS.DIST_PATH,
+      binaryName,
+    );
+    logger.warn(`⚠️  Using fallback binary path: ${defaultPath}`);
+    cachedBinaryPath = defaultPath;
+    return defaultPath;
   } catch (error) {
     logger.error(`Failed to initialize binary path: ${error}`);
     return null;
@@ -382,13 +396,94 @@ export function createPermissionErrorDetails(
   return errorDetails;
 }
 
+/**
+ * Requests EventKit permissions by triggering the Swift binary
+ * This will show system permission dialog if permissions aren't granted
+ */
+export async function requestEventKitPermissions(): Promise<PermissionStatus> {
+  const binaryPath = getBinaryPath();
+  if (!binaryPath) {
+    return createPermissionFailure(MESSAGES.ERROR.BINARY_NOT_AVAILABLE, true);
+  }
+
+  logger.debug('Attempting to request EventKit permissions...');
+  
+  return new Promise((resolve) => {
+    const process = spawn(binaryPath, []);
+    
+    let stdout = '';
+    let stderr = '';
+    
+    process.stdout.on('data', (data: Buffer) => {
+      stdout += data.toString();
+    });
+    
+    process.stderr.on('data', (data: Buffer) => {
+      stderr += data.toString();
+    });
+    
+    process.on('close', (code: number | null) => {
+      // If the Swift binary succeeds (code 0), it means permissions were granted
+      if (code === 0) {
+        logger.debug('EventKit permissions granted via Swift binary');
+        resolve({ granted: true, error: undefined, requiresUserAction: false });
+      } else {
+        // Permission was denied or there was an error
+        const errorMessage = stderr || 'EventKit permission request failed';
+        logger.debug('EventKit permission request failed:', errorMessage);
+        resolve(createPermissionFailure(errorMessage, true));
+      }
+    });
+    
+    process.on('error', (error: Error) => {
+      logger.error('Failed to execute Swift binary for permission request:', error);
+      resolve(createPermissionFailure(
+        `Failed to request EventKit permissions: ${error.message}`,
+        true
+      ));
+    });
+    
+    // Extended timeout for user interaction with permission dialog
+    setTimeout(() => {
+      if (!process.killed) {
+        process.kill();
+        resolve(createPermissionFailure(
+          'Permission request timed out - user may have dismissed the dialog',
+          true
+        ));
+      }
+    }, TIMEOUTS.EVENTKIT_PERMISSION_CHECK * 3); // Triple timeout for user interaction
+  });
+}
+
 // Main API function
 /**
  * Proactively checks and handles permission issues before operations
+ * Attempts to request permissions if they are denied
  */
 export async function ensurePermissions(): Promise<void> {
-  const permissions = await checkAllPermissions();
+  let permissions = await checkAllPermissions();
 
+  // If permissions aren't granted, try to request them
+  if (!permissions.allGranted) {
+    logger.debug('Permissions not granted, attempting to request them...');
+    
+    // Attempt to request EventKit permissions if they're the issue
+    if (!permissions.eventKit.granted) {
+      logger.debug('Requesting EventKit permissions...');
+      const requestResult = await requestEventKitPermissions();
+      
+      if (requestResult.granted) {
+        logger.debug('EventKit permissions granted after request');
+        // Re-check all permissions after successful request
+        permissions = await checkAllPermissions();
+      } else {
+        logger.debug('EventKit permission request failed:', requestResult.error);
+      }
+    }
+  }
+
+  // Final check - if still not granted, provide guidance and fail
   if (!permissions.allGranted) {
     const guidance = generatePermissionGuidance(permissions);
     const errorDetails = createPermissionErrorDetails(permissions);
