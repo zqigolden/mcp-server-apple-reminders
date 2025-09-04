@@ -20,54 +20,42 @@ const MAX_LIST_NAME_LENGTH = 100;
 const MAX_SEARCH_LENGTH = 100;
 
 /**
- * Base validation schemas
+ * Base validation schema factory for DRY principle
  */
-export const SafeTextSchema = z
-  .string()
-  .min(1, 'Text cannot be empty')
-  .max(MAX_TITLE_LENGTH, `Text cannot exceed ${MAX_TITLE_LENGTH} characters`)
-  .regex(
-    SAFE_TEXT_PATTERN,
-    'Text contains invalid characters. Only alphanumeric, spaces, and basic punctuation allowed',
-  );
+function createSafeTextSchema(minLength: number, maxLength: number, fieldName = 'Text') {
+  return z
+    .string()
+    .min(minLength, `${fieldName} cannot be empty`)
+    .max(maxLength, `${fieldName} cannot exceed ${maxLength} characters`)
+    .regex(SAFE_TEXT_PATTERN, `${fieldName} contains invalid characters. Only alphanumeric, spaces, and basic punctuation allowed`);
+}
 
-export const SafeNoteSchema = z
-  .string()
-  .max(MAX_NOTE_LENGTH, `Note cannot exceed ${MAX_NOTE_LENGTH} characters`)
-  .regex(SAFE_TEXT_PATTERN, 'Note contains invalid characters')
-  .optional();
+function createOptionalSafeTextSchema(maxLength: number, fieldName = 'Text') {
+  return z
+    .string()
+    .max(maxLength, `${fieldName} cannot exceed ${maxLength} characters`)
+    .regex(SAFE_TEXT_PATTERN, `${fieldName} contains invalid characters`)
+    .optional();
+}
 
-export const SafeListNameSchema = z
-  .string()
-  .min(1, 'List name cannot be empty')
-  .max(
-    MAX_LIST_NAME_LENGTH,
-    `List name cannot exceed ${MAX_LIST_NAME_LENGTH} characters`,
-  )
-  .regex(SAFE_TEXT_PATTERN, 'List name contains invalid characters')
-  .optional();
+/**
+ * Base validation schemas using factory functions
+ */
+export const SafeTextSchema = createSafeTextSchema(1, MAX_TITLE_LENGTH);
+export const SafeNoteSchema = createOptionalSafeTextSchema(MAX_NOTE_LENGTH, 'Note');
+export const SafeListNameSchema = createOptionalSafeTextSchema(MAX_LIST_NAME_LENGTH, 'List name');
+export const RequiredListNameSchema = createSafeTextSchema(1, MAX_LIST_NAME_LENGTH, 'List name');
+export const SafeSearchSchema = createOptionalSafeTextSchema(MAX_SEARCH_LENGTH, 'Search term');
 
 export const SafeDateSchema = z
   .string()
-  .regex(
-    DATE_PATTERN,
-    "Date must be in format 'YYYY-MM-DD' or 'YYYY-MM-DD HH:mm:ss'",
-  )
+  .regex(DATE_PATTERN, "Date must be in format 'YYYY-MM-DD' or 'YYYY-MM-DD HH:mm:ss'")
   .optional();
 
 export const SafeUrlSchema = z
   .string()
   .regex(URL_PATTERN, 'URL must be a valid HTTP or HTTPS URL')
   .max(500, 'URL cannot exceed 500 characters')
-  .optional();
-
-export const SafeSearchSchema = z
-  .string()
-  .max(
-    MAX_SEARCH_LENGTH,
-    `Search term cannot exceed ${MAX_SEARCH_LENGTH} characters`,
-  )
-  .regex(SAFE_TEXT_PATTERN, 'Search term contains invalid characters')
   .optional();
 
 /**
@@ -132,48 +120,20 @@ export const DeleteReminderSchema = z.object({
 
 export const MoveReminderSchema = z.object({
   title: SafeTextSchema,
-  fromList: z
-    .string()
-    .min(1, 'fromList cannot be empty')
-    .max(
-      MAX_LIST_NAME_LENGTH,
-      `fromList cannot exceed ${MAX_LIST_NAME_LENGTH} characters`,
-    )
-    .regex(SAFE_TEXT_PATTERN, 'fromList contains invalid characters'),
-  toList: z
-    .string()
-    .min(1, 'toList cannot be empty')
-    .max(
-      MAX_LIST_NAME_LENGTH,
-      `toList cannot exceed ${MAX_LIST_NAME_LENGTH} characters`,
-    )
-    .regex(SAFE_TEXT_PATTERN, 'toList contains invalid characters'),
+  fromList: RequiredListNameSchema,
+  toList: RequiredListNameSchema,
 });
 
 export const ListReminderListsSchema = z.object({
   createNew: z
     .object({
-      name: z
-        .string()
-        .min(1, 'name cannot be empty')
-        .max(
-          MAX_LIST_NAME_LENGTH,
-          `name cannot exceed ${MAX_LIST_NAME_LENGTH} characters`,
-        )
-        .regex(SAFE_TEXT_PATTERN, 'name contains invalid characters'),
+      name: RequiredListNameSchema,
     })
     .optional(),
 });
 
 export const CreateReminderListSchema = z.object({
-  name: z
-    .string()
-    .min(1, 'name cannot be empty')
-    .max(
-      MAX_LIST_NAME_LENGTH,
-      `name cannot exceed ${MAX_LIST_NAME_LENGTH} characters`,
-    )
-    .regex(SAFE_TEXT_PATTERN, 'name contains invalid characters'),
+  name: RequiredListNameSchema,
 });
 
 /**

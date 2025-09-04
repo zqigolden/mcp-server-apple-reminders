@@ -5,26 +5,31 @@
 
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 
+import type { ReminderAction, ListAction, DueWithinOption, OrganizeStrategy } from '../types/index.js';
+
 /**
- * Enum definitions for better type safety and consistency
+ * Const assertions for tool schema validation
  */
-const REMINDER_ACTIONS = [
+const REMINDER_ACTIONS: readonly ReminderAction[] = [
   'list',
-  'create',
+  'create', 
   'update',
   'delete',
   'move',
   'organize',
 ] as const;
-const LIST_ACTIONS = ['list', 'create'] as const;
-const DUE_WITHIN_OPTIONS = [
+
+const LIST_ACTIONS: readonly ListAction[] = ['list', 'create'] as const;
+
+const DUE_WITHIN_OPTIONS: readonly DueWithinOption[] = [
   'today',
   'tomorrow',
-  'this-week',
+  'this-week', 
   'overdue',
   'no-date',
 ] as const;
-const ORGANIZE_STRATEGIES = [
+
+const ORGANIZE_STRATEGIES: readonly OrganizeStrategy[] = [
   'priority',
   'due_date',
   'category',

@@ -29,97 +29,63 @@ export class RemindersManager {
   }
 
   private findBinaryPath(): string {
-    // Use centralized binary path resolution
-    // Find project root by searching for package.json
+    const projectRoot = this.findProjectRoot();
+    const possiblePaths = this.getBinaryPaths(projectRoot);
+    return this.selectBinaryPath(possiblePaths, projectRoot);
+  }
 
-    let projectRoot: string;
-
-    // Check if we're in test environment
+  /**
+   * Finds the project root directory using centralized utility
+   */
+  private findProjectRoot(): string {
+    // Guard clause: use mock path in test environment
     if (process.env.NODE_ENV === 'test') {
-      // In test environment, use cwd method
-      projectRoot = process.cwd();
-      const maxDepth = 10;
-      let depth = 0;
-
-      while (
-        !fs.existsSync(path.join(projectRoot, 'package.json')) &&
-        depth < maxDepth
-      ) {
-        const parent = path.dirname(projectRoot);
-        if (parent === projectRoot) break;
-        projectRoot = parent;
-        depth++;
-      }
-    } else {
-      // In production/development, try to find project root based on current file location
-      try {
-        // Get the directory of the current file
-        const currentFileUrl = import.meta.url;
-        const currentFilePath = new URL(currentFileUrl).pathname;
-        const currentDir = path.dirname(currentFilePath);
-
-        // Start from the current file's directory and go up to find package.json
-        projectRoot = currentDir;
-        let found = false;
-
-        // Look for package.json by going up the directory tree
-        for (let i = 0; i < 10; i++) {
-          if (fs.existsSync(path.join(projectRoot, 'package.json'))) {
-            found = true;
-            break;
-          }
-          const parent = path.dirname(projectRoot);
-          if (parent === projectRoot) break; // Reached root
-          projectRoot = parent;
-        }
-
-        // If we couldn't find package.json from file location, fall back to cwd
-        if (!found) {
-          logger.debug(
-            'Could not find package.json from file location, falling back to cwd',
-          );
-          projectRoot = process.cwd();
-          const maxDepth = 10;
-          let depth = 0;
-
-          while (
-            !fs.existsSync(path.join(projectRoot, 'package.json')) &&
-            depth < maxDepth
-          ) {
-            const parent = path.dirname(projectRoot);
-            if (parent === projectRoot) break;
-            projectRoot = parent;
-            depth++;
-          }
-        }
-      } catch (error) {
-        logger.debug(
-          'Error getting file location, falling back to cwd:',
-          error,
-        );
-        // Fallback to cwd method
-        projectRoot = process.cwd();
-        const maxDepth = 10;
-        let depth = 0;
-
-        while (
-          !fs.existsSync(path.join(projectRoot, 'package.json')) &&
-          depth < maxDepth
-        ) {
-          const parent = path.dirname(projectRoot);
-          if (parent === projectRoot) break;
-          projectRoot = parent;
-          depth++;
-        }
-      }
+      return this.findProjectRootFromCwd();
     }
 
-    // Try standard binary locations
-    const possiblePaths = [
+    try {
+      return findProjectRoot();
+    } catch (error) {
+      logger.debug('Error using findProjectRoot utility, falling back to cwd:', error);
+      return this.findProjectRootFromCwd();
+    }
+  }
+
+  /**
+   * Finds project root from current working directory
+   */
+  private findProjectRootFromCwd(): string {
+    let projectRoot = process.cwd();
+    const maxDepth = 10;
+    let depth = 0;
+
+    while (
+      !fs.existsSync(path.join(projectRoot, 'package.json')) &&
+      depth < maxDepth
+    ) {
+      const parent = path.dirname(projectRoot);
+      if (parent === projectRoot) break;
+      projectRoot = parent;
+      depth++;
+    }
+
+    return projectRoot;
+  }
+
+  /**
+   * Gets possible binary paths based on project root
+   */
+  private getBinaryPaths(projectRoot: string): string[] {
+    return [
       path.resolve(projectRoot, 'dist', 'swift', 'bin', 'GetReminders'),
       path.resolve(projectRoot, 'src', 'swift', 'bin', 'GetReminders'),
     ];
+  }
 
+  /**
+   * Selects the appropriate binary path from available options
+   */
+  private selectBinaryPath(possiblePaths: string[], projectRoot: string): string {
     const { path: securePath } = findSecureBinaryPath(
       possiblePaths,
       getEnvironmentBinaryConfig(),
@@ -131,13 +97,7 @@ export class RemindersManager {
     }
 
     // Fallback to default path
-    const defaultPath = path.resolve(
-      projectRoot,
-      'dist',
-      'swift',
-      'bin',
-      'GetReminders',
-    );
+    const defaultPath = path.resolve(projectRoot, 'dist', 'swift', 'bin', 'GetReminders');
     logger.warn(`⚠️  Using fallback binary path: ${defaultPath}`);
     return defaultPath;
   }
@@ -277,7 +237,7 @@ Or rebuild the binary:
   }
 
   /**
-   * Parse the output from the Swift binary
+   * Parse the output from the Swift binary with improved structure
    * @param output The raw output from the Swift binary
    * @returns Parsed reminders data
    */
@@ -285,25 +245,21 @@ Or rebuild the binary:
     lists: ReminderList[];
     reminders: Reminder[];
   } {
-    logger.debug(
-      `Starting to parse Swift output, ${output.split('\n').length} lines`,
-    );
+    const lineCount = output.split('\n').length;
+    logger.debug(`Starting to parse Swift output, ${lineCount} lines`);
 
     const sections = this.splitIntoSections(output);
     const lists = this.parseLists(sections.lists);
-    const reminders = this.parseReminders(sections.reminders);
+    const rawReminders = this.parseReminders(sections.reminders);
+    
+    // Normalize reminder completion status
+    const reminders = rawReminders.map((reminder) => ({
+      ...reminder,
+      isCompleted: this.normalizeIsCompleted(reminder.isCompleted),
+    }));
 
-    logger.debug(
-      `Finished parsing: ${lists.length} lists, ${reminders.length} reminders`,
-    );
-
-    return {
-      lists,
-      reminders: reminders.map((reminder) => ({
-        ...reminder,
-        isCompleted: this.normalizeIsCompleted(reminder.isCompleted),
-      })),
-    };
+    logger.debug(`Finished parsing: ${lists.length} lists, ${reminders.length} reminders`);
+    return { lists, reminders };
   }
 
   /**
@@ -344,7 +300,7 @@ Or rebuild the binary:
   }
 
   /**
-   * Parse reminders from lines
+   * Parse reminders from lines with null filtering
    */
   private parseReminders(lines: string[]): Reminder[] {
     const reminderBlocks = this.groupReminderLines(lines);

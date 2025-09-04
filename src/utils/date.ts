@@ -68,7 +68,16 @@ function clearTimePreferenceCache(): void {
 export { clearTimePreferenceCache };
 
 /**
- * Safely executes system command to read preferences
+ * Validates command execution for security
+ */
+function validateSystemCommand(command: string, args: string[]): void {
+  if (command !== 'defaults' || !args.includes('AppleICUForce24HourTime')) {
+    throw new Error(`Command not allowed: ${command}`);
+  }
+}
+
+/**
+ * Safely executes system command to read preferences with improved structure
  * @param command - Command to execute
  * @param args - Command arguments
  * @param timeout - Timeout in milliseconds
@@ -80,9 +89,11 @@ async function safeSystemCommand(
   timeout = 5000,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    // Simplified security check
-    if (command !== 'defaults' || !args.includes('AppleICUForce24HourTime')) {
-      reject(new Error(`Command not allowed: ${command}`));
+    // Guard clause: validate command security
+    try {
+      validateSystemCommand(command, args);
+    } catch (error) {
+      reject(error);
       return;
     }
 
@@ -98,24 +109,32 @@ async function safeSystemCommand(
     childProcess.stdout?.on('data', (data) => {
       stdout += data.toString();
     });
+    
     childProcess.stderr?.on('data', (data) => {
       stderr += data.toString();
     });
 
     childProcess.on('close', (code) => {
-      code === 0
-        ? resolve(stdout.trim())
+      const result = code === 0 
+        ? resolve(stdout.trim()) 
         : reject(new Error(`Command failed: ${stderr}`));
+      return result;
     });
 
-    childProcess.on('error', (error) =>
-      reject(new Error(`Process error: ${error.message}`)),
-    );
+    childProcess.on('error', (error) => {
+      reject(new Error(`Process error: ${error.message}`));
+    });
 
-    setTimeout(() => {
-      if (!childProcess.killed) childProcess.kill('SIGTERM');
+    // Set up timeout
+    const timeoutId = setTimeout(() => {
+      if (!childProcess.killed) {
+        childProcess.kill('SIGTERM');
+      }
       reject(new Error(`Command timed out after ${timeout}ms`));
     }, timeout);
+
+    // Clear timeout on process completion
+    childProcess.on('close', () => clearTimeout(timeoutId));
   });
 }
 
@@ -175,7 +194,18 @@ export function generateDateProperty(
 }
 
 /**
- * Unified date formatting function
+ * Creates standardized error message for date parsing
+ */
+function createDateFormatErrorMessage(dateStr: string): string {
+  return (
+    `Invalid or unsupported date format: "${dateStr}". ` +
+    `Supported formats: YYYY-MM-DD HH:mm:ss, YYYY-MM-DD, ISO 8601. ` +
+    `Example: "2024-12-25 14:30:00"`
+  );
+}
+
+/**
+ * Unified date formatting function with improved error handling
  * @param dateStr - Date string to parse
  * @param isDateOnly - Whether this is a date-only format
  * @returns Formatted date string
@@ -183,6 +213,7 @@ export function generateDateProperty(
  */
 function formatDate(dateStr: string, isDateOnly: boolean): string {
   let parsedDate: moment.Moment;
+  
   try {
     parsedDate = moment(
       dateStr,
@@ -190,30 +221,26 @@ function formatDate(dateStr: string, isDateOnly: boolean): string {
       true,
     );
   } catch {
-    // Normalize any parsing exceptions to a consistent message expected by tests/consumers
-    throw new Error(
-      `Invalid or unsupported date format: "${dateStr}". ` +
-        `Supported formats: YYYY-MM-DD HH:mm:ss, YYYY-MM-DD, ISO 8601. ` +
-        `Example: "2024-12-25 14:30:00"`,
-    );
+    throw new Error(createDateFormatErrorMessage(dateStr));
   }
 
+  // Guard clause: check if date is valid
   if (!parsedDate.isValid()) {
-    throw new Error(
-      `Invalid or unsupported date format: "${dateStr}". ` +
-        `Supported formats: YYYY-MM-DD HH:mm:ss, YYYY-MM-DD, ISO 8601. ` +
-        `Example: "2024-12-25 14:30:00"`,
-    );
+    throw new Error(createDateFormatErrorMessage(dateStr));
   }
 
   const englishMoment = parsedDate.locale('en');
 
+  // Early return for date-only format
   if (isDateOnly) {
     return englishMoment.format(DATE_ONLY_FORMAT);
   }
 
-  const use24Hour = get24HourPreference();
-  const format = use24Hour ? DATETIME_FORMAT_24_HOUR : DATETIME_FORMAT_12_HOUR;
+  // Format based on system preference
+  const format = get24HourPreference() 
+    ? DATETIME_FORMAT_24_HOUR 
+    : DATETIME_FORMAT_12_HOUR;
+  
   return englishMoment.format(format);
 }
 

@@ -51,13 +51,14 @@ export async function handleToolCall(
             title: 'batch',
             batchOperation: {
               enabled: true,
-              strategy: args?.strategy,
-              sourceList: args?.sourceList,
-              createLists: args?.createLists,
+              strategy: args.strategy,
+              sourceList: args.sourceList,
+              createLists: args.createLists,
               filter: {
-                completed: args?.completed,
-                search: args?.search,
-                dueWithin: args?.dueWithin,
+                // For organize action, these fields may not be present
+                // completed: args.completed,
+                // search: args.search,
+                // dueWithin: args.dueWithin,
               },
             },
           };
@@ -83,11 +84,22 @@ export async function handleToolCall(
       switch (action) {
         case 'list':
           return handleListReminderLists({ action: 'list' });
-        case 'create':
+        case 'create': {
+          const listArgs = args as ListsToolArgs;
+          if (!listArgs.name) {
+            return {
+              content: [{
+                type: 'text',
+                text: MESSAGES.ERROR.INPUT_VALIDATION_FAILED('Name is required for list creation')
+              }],
+              isError: true,
+            };
+          }
           return handleCreateReminderList({
             action: 'create',
-            name: (args as ListsToolArgs)?.name,
+            name: listArgs.name,
           });
+        }
         default:
           return {
             content: [

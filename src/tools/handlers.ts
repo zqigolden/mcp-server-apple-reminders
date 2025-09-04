@@ -4,6 +4,7 @@
  */
 
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { z } from 'zod';
 import type {
   ListsToolArgs,
   Reminder,
@@ -42,7 +43,7 @@ import {
  */
 function extractAndValidateArgs<T>(
   args: RemindersToolArgs | ListsToolArgs | undefined,
-  schema: any,
+  schema: z.ZodSchema<T>,
 ): T {
   const { action: _ignored, ...rest } = args ?? {};
   return validateInput(schema, rest);
@@ -88,10 +89,16 @@ export async function handleUpdateReminder(
 ): Promise<CallToolResult> {
   return handleAsyncOperation(
     async () => {
-      const validatedArgs = extractAndValidateArgs<any>(args, UpdateReminderSchema);
+      const validatedArgs = extractAndValidateArgs(args, UpdateReminderSchema);
 
+      // Early return for batch operations
       if (validatedArgs.batchOperation?.enabled) {
         return await processBatchOrganization(validatedArgs.batchOperation);
+      }
+
+      // Guard clause: ensure we have a title for single reminder updates
+      if (!validatedArgs.title) {
+        throw new Error('Title is required for single reminder updates');
       }
 
       const updateData: UpdateReminderData = {
@@ -105,7 +112,6 @@ export async function handleUpdateReminder(
       };
 
       await reminderRepository.updateReminder(updateData);
-
       return MESSAGES.SUCCESS.REMINDER_UPDATED(validatedArgs.title);
     },
     'update reminder',
@@ -114,7 +120,7 @@ export async function handleUpdateReminder(
 }
 
 /**
- * Processes batch organization operations
+ * Processes batch organization operations with improved error handling
  */
 async function processBatchOrganization(batchOperation: {
   strategy?: string;
@@ -129,14 +135,16 @@ async function processBatchOrganization(batchOperation: {
   const filters = buildBatchFilters(batchOperation);
   const reminders = await reminderRepository.findReminders(filters);
 
+  // Guard clause: check if reminders found
+  if (reminders.length === 0) {
+    return 'No reminders found matching the specified criteria for batch organization.';
+  }
+
   const strategy = batchOperation.strategy || 'category';
   const groups = ReminderOrganizer.organizeReminders(reminders, strategy);
-
-  const results = await processBatchGroups(
-    groups,
-    batchOperation.createLists !== false,
-  );
-
+  const shouldCreateLists = batchOperation.createLists !== false;
+  
+  const results = await processBatchGroups(groups, shouldCreateLists);
   return `Batch organization complete using ${strategy} strategy:\n${results.join('\n')}`;
 }
 
@@ -293,7 +301,7 @@ export async function handleMoveReminder(
 }
 
 /**
- * Lists all reminder lists or creates a new one
+ * Lists all reminder lists or creates a new one with simplified logic
  * @param args - Optional arguments for creating a new list
  * @returns Result of the operation with the list of reminder lists in JSON format
  */
@@ -301,38 +309,48 @@ export async function handleListReminderLists(
   args?: ListsToolArgs,
 ): Promise<CallToolResult> {
   return handleJsonAsyncOperation(async () => {
-    const cleaned =
-      args && typeof args === 'object'
-        ? (() => {
-            const { action: _ignored, ...rest } = args;
-            return rest;
-          })()
-        : undefined;
-    const validatedArgs = cleaned
-      ? validateInput(ListReminderListsSchema, cleaned)
+    // Guard clause: handle no arguments case
+    if (!args || typeof args !== 'object') {
+      const lists = await reminderRepository.findAllLists();
+      return createListResponse(lists);
+    }
+
+    const { action: _ignored, ...rest } = args;
+    const validatedArgs = rest && Object.keys(rest).length > 0 
+      ? validateInput(ListReminderListsSchema, rest) 
       : undefined;
 
+    // Handle list creation if requested
     if (validatedArgs?.createNew) {
       const createResult = await handleCreateReminderList({
         action: 'create',
         name: validatedArgs.createNew.name,
       });
+      
       if (createResult.isError) {
         throw new Error('Failed to create reminder list');
       }
+      
       return { message: 'List created successfully' };
     }
 
+    // Default: return all lists
     const lists = await reminderRepository.findAllLists();
-
-    return {
-      lists: lists.map((list) => ({
-        id: list.id,
-        title: list.title,
-      })),
-      total: lists.length,
-    };
+    return createListResponse(lists);
   }, 'list reminder lists');
+}
+
+/**
+ * Creates a standardized list response format
+ */
+function createListResponse(lists: { id: number; title: string }[]) {
+  return {
+    lists: lists.map((list) => ({
+      id: list.id,
+      title: list.title,
+    })),
+    total: lists.length,
+  };
 }
 
 /**

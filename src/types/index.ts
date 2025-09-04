@@ -41,14 +41,30 @@ export interface ReminderResult {
 }
 
 /**
- * Tool argument types
+ * Shared type constants for better type safety and consistency
  */
-export interface RemindersToolArgs {
-  action: 'list' | 'create' | 'update' | 'delete' | 'move' | 'organize';
+export type ReminderAction = 'list' | 'create' | 'update' | 'delete' | 'move' | 'organize';
+export type ListAction = 'list' | 'create';
+export type DueWithinOption = 'today' | 'tomorrow' | 'this-week' | 'overdue' | 'no-date';
+export type OrganizeStrategy = 'priority' | 'due_date' | 'category' | 'completion_status';
+
+/**
+ * Base tool arguments interface
+ */
+interface BaseToolArgs {
+  action: string;
+}
+
+/**
+ * Tool argument types - keeping flexible for handler routing while maintaining type safety
+ */
+export interface RemindersToolArgs extends BaseToolArgs {
+  action: ReminderAction;
+  // Common optional fields that may be present across different actions
   list?: string;
   showCompleted?: boolean;
   search?: string;
-  dueWithin?: 'today' | 'tomorrow' | 'this-week' | 'overdue' | 'no-date';
+  dueWithin?: DueWithinOption;
   title?: string;
   newTitle?: string;
   dueDate?: string;
@@ -57,33 +73,51 @@ export interface RemindersToolArgs {
   completed?: boolean;
   fromList?: string;
   toList?: string;
-  strategy?: 'priority' | 'due_date' | 'category' | 'completion_status';
+  strategy?: OrganizeStrategy;
   sourceList?: string;
   createLists?: boolean;
-  batchOperation?: {
-    enabled: boolean;
-    strategy?: 'priority' | 'due_date' | 'category' | 'completion_status';
-    sourceList?: string;
-    createLists?: boolean;
-    filter?: {
-      completed?: boolean;
-      search?: string;
-      dueWithin?: string;
-    };
-  };
+  batchOperation?: BatchOperation;
 }
 
-export interface ListsToolArgs {
-  action: 'list' | 'create';
+export interface ListsToolArgs extends BaseToolArgs {
+  action: ListAction;
   name?: string;
 }
 
 /**
- * Tool handler function signature
+ * Specific action argument types for better validation
  */
-export type ToolHandler = (
-  args: RemindersToolArgs | ListsToolArgs,
-) => Promise<CallToolResult>;
+export type ListReminderArgs = { action: 'list'; list?: string; showCompleted?: boolean; search?: string; dueWithin?: DueWithinOption };
+export type CreateReminderArgs = { action: 'create'; title: string; dueDate?: string; note?: string; url?: string; list?: string };
+export type UpdateReminderArgs = { action: 'update'; title?: string; newTitle?: string; dueDate?: string; note?: string; url?: string; completed?: boolean; list?: string; batchOperation?: BatchOperation };
+export type DeleteReminderArgs = { action: 'delete'; title: string; list?: string };
+export type MoveReminderArgs = { action: 'move'; title: string; fromList: string; toList: string };
+export type OrganizeReminderArgs = { action: 'organize'; strategy: OrganizeStrategy; sourceList?: string; createLists?: boolean };
+
+export type CreateListArgs = { action: 'create'; name: string };
+export type ListListsArgs = { action: 'list' };
+
+/**
+ * Batch operation interface for complex update operations
+ */
+export interface BatchOperation {
+  enabled: boolean;
+  strategy?: OrganizeStrategy;
+  sourceList?: string;
+  createLists?: boolean;
+  filter?: {
+    completed?: boolean;
+    search?: string;
+    dueWithin?: DueWithinOption;
+  };
+}
+
+/**
+ * Tool handler function signatures
+ */
+export type ReminderToolHandler = (args: RemindersToolArgs) => Promise<CallToolResult>;
+export type ListToolHandler = (args: ListsToolArgs) => Promise<CallToolResult>;
+export type ToolHandler = ReminderToolHandler | ListToolHandler;
 
 /**
  * Resource definitions
