@@ -1,4 +1,9 @@
 // 使用全局 Jest 函数，避免额外依赖
+
+// Mock child_process and logger
+jest.mock('child_process');
+jest.mock('./logger.js');
+
 import { execSync } from 'node:child_process';
 import {
   createRemindersScript,
@@ -7,12 +12,9 @@ import {
 } from './applescript.js';
 import { debugLog } from './logger.js';
 
-// Mock child_process and logger
-jest.mock('child_process');
-jest.mock('./logger.js');
-
-const mockExecSync = execSync as jest.MockedFunction<typeof execSync>;
-const mockDebugLog = debugLog as jest.MockedFunction<typeof debugLog>;
+// Type the mocks using jest.mocked
+const mockExecSync = jest.mocked(execSync);
+const mockDebugLog = jest.mocked(debugLog);
 
 describe('AppleScript Security Tests', () => {
   beforeEach(() => {

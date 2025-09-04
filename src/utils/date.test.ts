@@ -6,7 +6,9 @@ import moment from 'moment';
 
 // Mock dependencies
 jest.mock('moment');
-jest.mock('child_process');
+jest.mock('child_process', () => ({
+  spawn: jest.fn(),
+}));
 jest.mock('./logger.js', () => ({
   debugLog: jest.fn(),
 }));

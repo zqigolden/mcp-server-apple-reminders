@@ -6,11 +6,33 @@ import { fileURLToPath } from 'node:url';
 import { RemindersManager, remindersManager } from './reminders.js';
 
 // Mock dependencies
-jest.mock('child_process');
-jest.mock('fs');
-jest.mock('path');
-jest.mock('url');
-jest.mock('./logger.js');
+jest.mock('child_process', () => ({
+  spawn: jest.fn(),
+}));
+jest.mock('fs', () => ({
+  existsSync: jest.fn(),
+  accessSync: jest.fn(),
+  constants: {
+    F_OK: 0,
+    X_OK: 1,
+  },
+}));
+jest.mock('path', () => ({
+  join: jest.fn(),
+  dirname: jest.fn(),
+  resolve: jest.fn(),
+}));
+jest.mock('url', () => ({
+  fileURLToPath: jest.fn(),
+}));
+jest.mock('./logger.js', () => ({
+  debugLog: jest.fn(),
+  logger: {
+    debug: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+  },
+}));
 // Module helpers functionality moved inline
 jest.mock('./binaryValidator.js', () => ({
   findSecureBinaryPath: jest.fn(),

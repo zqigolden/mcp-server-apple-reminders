@@ -297,13 +297,7 @@ jest.mock('../utils/logger.js', () => ({
   },
 }));
 
-// Mock the reminders manager with correct return type
-const mockGetReminders = jest.fn(async (_showCompleted: boolean = false) => ({
-  reminders: [] as Reminder[],
-  lists: [] as ReminderList[],
-}));
-remindersManager.getReminders =
-  mockGetReminders as unknown as typeof remindersManager.getReminders;
+// Repository mocks are handled in the mock setup above
 
 // Import the mocked functions after mocks are set up
 import {
@@ -322,7 +316,7 @@ import { handleCreateReminder } from './handlers.js';
 
 describe('handleListReminders', () => {
   beforeEach(() => {
-    mockGetReminders.mockClear();
+    jest.clearAllMocks();
   });
 
   // Helper function to validate JSON response format
@@ -344,10 +338,12 @@ describe('handleListReminders', () => {
       },
     ];
 
-    mockGetReminders.mockResolvedValue({
-      reminders: mockReminders,
-      lists: [],
-    });
+    // Mock the repository method instead
+    (
+      reminderRepository.findReminders as jest.MockedFunction<
+        (filters?: ReminderFilters) => Promise<Reminder[]>
+      >
+    ).mockResolvedValue(mockReminders);
 
     const result = await handleListReminders({ action: 'list' });
 
@@ -361,8 +357,9 @@ describe('handleListReminders', () => {
         reminders: expect.any(Array),
         total: expect.any(Number),
         filter: expect.objectContaining({
-          list: expect.any(String),
           showCompleted: expect.any(Boolean),
+          search: expect.any(Object), // can be null
+          dueWithin: expect.any(Object), // can be null
         }),
       }),
     );
@@ -382,10 +379,11 @@ describe('handleListReminders', () => {
       },
     ];
 
-    mockGetReminders.mockResolvedValue({
-      reminders: mockReminders,
-      lists: [],
-    });
+    (
+      reminderRepository.findReminders as jest.MockedFunction<
+        (filters?: ReminderFilters) => Promise<Reminder[]>
+      >
+    ).mockResolvedValue(mockReminders);
 
     const result = await handleListReminders({ action: 'list' });
 
@@ -418,10 +416,11 @@ describe('handleListReminders', () => {
       },
     ];
 
-    mockGetReminders.mockResolvedValue({
-      reminders: mockReminders,
-      lists: [],
-    });
+    (
+      reminderRepository.findReminders as jest.MockedFunction<
+        (filters?: ReminderFilters) => Promise<Reminder[]>
+      >
+    ).mockResolvedValue(mockReminders);
 
     const result = await handleListReminders({ action: 'list' });
 
@@ -447,10 +446,11 @@ describe('handleListReminders', () => {
       },
     ];
 
-    mockGetReminders.mockResolvedValue({
-      reminders: mockReminders,
-      lists: [],
-    });
+    (
+      reminderRepository.findReminders as jest.MockedFunction<
+        (filters?: ReminderFilters) => Promise<Reminder[]>
+      >
+    ).mockResolvedValue(mockReminders);
 
     const result = await handleListReminders({ action: 'list' });
 
@@ -476,10 +476,11 @@ describe('handleListReminders', () => {
       },
     ];
 
-    mockGetReminders.mockResolvedValue({
-      reminders: mockReminders,
-      lists: [],
-    });
+    (
+      reminderRepository.findReminders as jest.MockedFunction<
+        (filters?: ReminderFilters) => Promise<Reminder[]>
+      >
+    ).mockResolvedValue(mockReminders);
 
     const result = await handleListReminders({
       action: 'list',
@@ -500,13 +501,18 @@ describe('handleListReminders', () => {
   });
 
   test('should return valid JSON with error when operation fails', async () => {
-    mockGetReminders.mockRejectedValue(new Error('Test error'));
+    (
+      reminderRepository.findReminders as jest.MockedFunction<
+        (filters?: ReminderFilters) => Promise<Reminder[]>
+      >
+    ).mockRejectedValue(new Error('Test error'));
 
     const result = await handleListReminders({ action: 'list' });
 
     validateJsonResponse(result);
     const parsedJson = JSON.parse(result.content[0].text as string);
 
+    // When the operation fails, it should return an error response
     expect(parsedJson).toEqual(
       expect.objectContaining({
         error: expect.any(String),
@@ -526,10 +532,11 @@ describe('handleListReminders', () => {
       },
     ];
 
-    mockGetReminders.mockResolvedValue({
-      reminders: mockReminders,
-      lists: [],
-    });
+    (
+      reminderRepository.findReminders as jest.MockedFunction<
+        (filters?: ReminderFilters) => Promise<Reminder[]>
+      >
+    ).mockResolvedValue(mockReminders);
 
     const result = await handleListReminders({
       action: 'list',
@@ -562,10 +569,11 @@ describe('handleListReminders', () => {
       },
     ];
 
-    mockGetReminders.mockResolvedValue({
-      reminders: mockReminders,
-      lists: [],
-    });
+    (
+      reminderRepository.findReminders as jest.MockedFunction<
+        (filters?: ReminderFilters) => Promise<Reminder[]>
+      >
+    ).mockResolvedValue(mockReminders);
 
     const result = await handleListReminders({ action: 'list', list: 'Work' });
 
@@ -598,10 +606,11 @@ describe('handleListReminders', () => {
       },
     ];
 
-    mockGetReminders.mockResolvedValue({
-      reminders: mockReminders,
-      lists: [],
-    });
+    (
+      reminderRepository.findReminders as jest.MockedFunction<
+        (filters?: ReminderFilters) => Promise<Reminder[]>
+      >
+    ).mockResolvedValue(mockReminders);
 
     const result = await handleListReminders({
       action: 'list',
@@ -648,10 +657,11 @@ describe('handleListReminders', () => {
       },
     ];
 
-    mockGetReminders.mockResolvedValue({
-      reminders: mockReminders,
-      lists: [],
-    });
+    (
+      reminderRepository.findReminders as jest.MockedFunction<
+        (filters?: ReminderFilters) => Promise<Reminder[]>
+      >
+    ).mockResolvedValue(mockReminders);
 
     const result = await handleListReminders({
       action: 'list',
