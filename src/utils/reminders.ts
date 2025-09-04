@@ -35,7 +35,7 @@ export class RemindersManager {
   }
 
   /**
-   * Finds the project root directory using centralized utility
+   * Finds the project root directory using file location approach
    */
   private findProjectRoot(): string {
     // Guard clause: use mock path in test environment
@@ -44,10 +44,11 @@ export class RemindersManager {
     }
 
     try {
+      // First try using the centralized utility (works when run from project dir)
       return findProjectRoot();
     } catch (error) {
-      logger.debug('Error using findProjectRoot utility, falling back to cwd:', error);
-      return this.findProjectRootFromCwd();
+      logger.debug('Error using findProjectRoot utility, falling back to file location:', error);
+      return this.findProjectRootFromFileLocation();
     }
   }
 
@@ -70,6 +71,40 @@ export class RemindersManager {
     }
 
     return projectRoot;
+  }
+
+  /**
+   * Finds project root from file location (works when run from outside project)
+   */
+  private findProjectRootFromFileLocation(): string {
+    try {
+      // Get the directory of the current file
+      const currentFileUrl = import.meta.url;
+      const currentFilePath = new URL(currentFileUrl).pathname;
+      const currentDir = path.dirname(currentFilePath);
+
+      // Start from the current file's directory and go up to find package.json
+      let projectRoot = currentDir;
+      const maxDepth = 10;
+
+      // Look for package.json by going up the directory tree
+      for (let i = 0; i < maxDepth; i++) {
+        if (fs.existsSync(path.join(projectRoot, 'package.json'))) {
+          logger.debug(`Project root found from file location: ${projectRoot}`);
+          return projectRoot;
+        }
+        const parent = path.dirname(projectRoot);
+        if (parent === projectRoot) break; // Reached filesystem root
+        projectRoot = parent;
+      }
+
+      // If we couldn't find package.json from file location, fall back to cwd
+      logger.debug('Could not find package.json from file location, falling back to cwd');
+      return this.findProjectRootFromCwd();
+    } catch (error) {
+      logger.debug('Error getting file location, falling back to cwd:', error);
+      return this.findProjectRootFromCwd();
+    }
   }
 
   /**
