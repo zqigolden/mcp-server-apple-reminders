@@ -20,9 +20,7 @@ export function findProjectRoot(maxDepth = 10): string {
   if (process.env.NODE_ENV === 'test') {
     let depth = 0;
     while (depth < maxDepth) {
-      const packageJsonPath = path.join(currentDir, 'package.json');
-      
-      if (fs.existsSync(packageJsonPath)) {
+      if (isCorrectProjectRoot(currentDir)) {
         logger.debug(`Project root found at: ${currentDir}`);
         return currentDir;
       }
@@ -39,9 +37,7 @@ export function findProjectRoot(maxDepth = 10): string {
     // In production/development, use a more robust approach
     let depth = 0;
     while (depth < maxDepth) {
-      const packageJsonPath = path.join(currentDir, 'package.json');
-      
-      if (fs.existsSync(packageJsonPath)) {
+      if (isCorrectProjectRoot(currentDir)) {
         logger.debug(`Project root found at: ${currentDir}`);
         return currentDir;
       }
@@ -57,6 +53,25 @@ export function findProjectRoot(maxDepth = 10): string {
   }
 
   throw new Error(`Project root not found within ${maxDepth} directory levels`);
+}
+
+/**
+ * Checks if a directory contains the correct package.json for this project
+ */
+function isCorrectProjectRoot(dir: string): boolean {
+  const packageJsonPath = path.join(dir, 'package.json');
+  if (!fs.existsSync(packageJsonPath)) {
+    return false;
+  }
+
+  try {
+    const packageContent = fs.readFileSync(packageJsonPath, 'utf8');
+    const packageData = JSON.parse(packageContent);
+    return packageData.name === 'mcp-server-apple-reminders';
+  } catch (error) {
+    logger.debug(`Failed to parse package.json at ${packageJsonPath}:`, error);
+    return false;
+  }
 }
 
 /**

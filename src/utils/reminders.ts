@@ -60,10 +60,10 @@ export class RemindersManager {
     const maxDepth = 10;
     let depth = 0;
 
-    while (
-      !fs.existsSync(path.join(projectRoot, 'package.json')) &&
-      depth < maxDepth
-    ) {
+    while (depth < maxDepth) {
+      if (this.isCorrectProjectRoot(projectRoot)) {
+        return projectRoot;
+      }
       const parent = path.dirname(projectRoot);
       if (parent === projectRoot) break;
       projectRoot = parent;
@@ -87,9 +87,9 @@ export class RemindersManager {
       let projectRoot = currentDir;
       const maxDepth = 10;
 
-      // Look for package.json by going up the directory tree
+      // Look for the correct package.json by going up the directory tree
       for (let i = 0; i < maxDepth; i++) {
-        if (fs.existsSync(path.join(projectRoot, 'package.json'))) {
+        if (this.isCorrectProjectRoot(projectRoot)) {
           logger.debug(`Project root found from file location: ${projectRoot}`);
           return projectRoot;
         }
@@ -98,12 +98,31 @@ export class RemindersManager {
         projectRoot = parent;
       }
 
-      // If we couldn't find package.json from file location, fall back to cwd
-      logger.debug('Could not find package.json from file location, falling back to cwd');
+      // If we couldn't find the correct package.json from file location, fall back to cwd
+      logger.debug('Could not find correct package.json from file location, falling back to cwd');
       return this.findProjectRootFromCwd();
     } catch (error) {
       logger.debug('Error getting file location, falling back to cwd:', error);
       return this.findProjectRootFromCwd();
+    }
+  }
+
+  /**
+   * Checks if a directory contains the correct package.json for this project
+   */
+  private isCorrectProjectRoot(dir: string): boolean {
+    const packageJsonPath = path.join(dir, 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+      return false;
+    }
+
+    try {
+      const packageContent = fs.readFileSync(packageJsonPath, 'utf8');
+      const packageData = JSON.parse(packageContent);
+      return packageData.name === 'mcp-server-apple-reminders';
+    } catch (error) {
+      logger.debug(`Failed to parse package.json at ${packageJsonPath}:`, error);
+      return false;
     }
   }
 
