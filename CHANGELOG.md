@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- URL validation pattern to allow URLs without explicit paths (e.g., https://google.com)
 - Multiple URL sections parsing in structured format
 - Project root detection with enhanced fallback mechanisms
 - Critical test mocking issues and expectations alignment
