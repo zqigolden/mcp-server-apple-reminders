@@ -12,6 +12,7 @@ export interface Reminder {
   title: string;
   dueDate?: string;
   notes?: string;
+  url?: string;           // Native URL field (currently limited by EventKit API)
   list: string;
   isCompleted: boolean;
 }
@@ -41,49 +42,95 @@ export interface ReminderResult {
 }
 
 /**
- * Tool argument types
+ * Shared type constants for better type safety and consistency
  */
-export interface RemindersToolArgs {
-  action: 'list' | 'create' | 'update' | 'delete' | 'move' | 'organize';
-  list?: string;
+export type ReminderAction = 'read' | 'list' | 'create' | 'update' | 'delete' | 'bulk_create' | 'bulk_update' | 'bulk_delete';
+export type ListAction = 'read' | 'create' | 'update' | 'delete';
+export type DueWithinOption = 'today' | 'tomorrow' | 'this-week' | 'overdue' | 'no-date';
+export type OrganizeStrategy = 'priority' | 'due_date' | 'category' | 'completion_status';
+
+/**
+ * Base tool arguments interface
+ */
+interface BaseToolArgs {
+  action: string;
+}
+
+/**
+ * Tool argument types - keeping flexible for handler routing while maintaining type safety
+ */
+export interface RemindersToolArgs extends BaseToolArgs {
+  action: ReminderAction;
+  // Filtering parameters (for list action)
+  filterList?: string;
   showCompleted?: boolean;
   search?: string;
-  dueWithin?: 'today' | 'tomorrow' | 'this-week' | 'overdue' | 'no-date';
+  dueWithin?: DueWithinOption;
+  // Single item parameters
   title?: string;
   newTitle?: string;
   dueDate?: string;
   note?: string;
   url?: string;
   completed?: boolean;
-  fromList?: string;
-  toList?: string;
-  strategy?: 'priority' | 'due_date' | 'category' | 'completion_status';
-  sourceList?: string;
-  createLists?: boolean;
-  batchOperation?: {
-    enabled: boolean;
-    strategy?: 'priority' | 'due_date' | 'category' | 'completion_status';
+  // Target list for create/update operations
+  targetList?: string;
+  // Bulk operation parameters
+  items?: Array<{
+    title: string;
+    dueDate?: string;
+    note?: string;
+    url?: string;
+    targetList?: string;
+  }>;
+  criteria?: {
+    search?: string;
+    dueWithin?: DueWithinOption;
+    completed?: boolean;
     sourceList?: string;
-    createLists?: boolean;
-    filter?: {
-      completed?: boolean;
-      search?: string;
-      dueWithin?: string;
-    };
   };
+  updates?: {
+    newTitle?: string;
+    dueDate?: string;
+    note?: string;
+    url?: string;
+    completed?: boolean;
+    targetList?: string;
+  };
+  // Organize parameters for bulk_update
+  organizeBy?: OrganizeStrategy;
+  createLists?: boolean;
 }
 
-export interface ListsToolArgs {
-  action: 'list' | 'create';
+export interface ListsToolArgs extends BaseToolArgs {
+  action: ListAction;
   name?: string;
+  newName?: string;
 }
 
 /**
- * Tool handler function signature
+ * Specific action argument types for better validation
  */
-export type ToolHandler = (
-  args: RemindersToolArgs | ListsToolArgs,
-) => Promise<CallToolResult>;
+export type ReadReminderArgs = { action: 'read'; filterList?: string; showCompleted?: boolean; search?: string; dueWithin?: DueWithinOption };
+export type CreateReminderArgs = { action: 'create'; title: string; dueDate?: string; note?: string; url?: string; targetList?: string };
+export type UpdateReminderArgs = { action: 'update'; title: string; newTitle?: string; dueDate?: string; note?: string; url?: string; completed?: boolean; targetList?: string };
+export type DeleteReminderArgs = { action: 'delete'; title: string; filterList?: string };
+export type BulkCreateReminderArgs = { action: 'bulk_create'; items: Array<{ title: string; dueDate?: string; note?: string; url?: string; targetList?: string }> };
+export type BulkUpdateReminderArgs = { action: 'bulk_update'; criteria: { search?: string; dueWithin?: DueWithinOption; completed?: boolean; sourceList?: string }; updates: { newTitle?: string; dueDate?: string; note?: string; url?: string; completed?: boolean; targetList?: string }; organizeBy?: OrganizeStrategy; createLists?: boolean };
+export type BulkDeleteReminderArgs = { action: 'bulk_delete'; criteria: { search?: string; dueWithin?: DueWithinOption; completed?: boolean; sourceList?: string } };
+
+export type CreateListArgs = { action: 'create'; name: string };
+export type UpdateListArgs = { action: 'update'; name: string; newName: string };
+export type DeleteListArgs = { action: 'delete'; name: string };
+export type ReadListsArgs = { action: 'read' };
+
+
+/**
+ * Tool handler function signatures
+ */
+export type ReminderToolHandler = (args: RemindersToolArgs) => Promise<CallToolResult>;
+export type ListToolHandler = (args: ListsToolArgs) => Promise<CallToolResult>;
+export type ToolHandler = ReminderToolHandler | ListToolHandler;
 
 /**
  * Resource definitions

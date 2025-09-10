@@ -8,6 +8,8 @@ import {
   ReminderCreationBuilder,
   ReminderDeletionBuilder,
   ReminderListCreationBuilder,
+  ReminderListDeletionBuilder,
+  ReminderListUpdateBuilder,
   ReminderMoveBuilder,
   ReminderUpdateScriptBuilder,
 } from './appleScriptBuilders.js';
@@ -149,6 +151,28 @@ export class ReminderRepository {
     const script = builder.build();
 
     debugLog('Creating reminder list with script:', script);
+    executeAppleScript(script);
+  }
+
+  /**
+   * Updates a reminder list name
+   */
+  async updateReminderList(currentName: string, newName: string): Promise<void> {
+    const builder = new ReminderListUpdateBuilder(currentName, newName);
+    const script = builder.build();
+
+    debugLog('Updating reminder list with script:', script);
+    executeAppleScript(script);
+  }
+
+  /**
+   * Deletes a reminder list
+   */
+  async deleteReminderList(name: string): Promise<void> {
+    const builder = new ReminderListDeletionBuilder(name);
+    const script = builder.build();
+
+    debugLog('Deleting reminder list with script:', script);
     executeAppleScript(script);
   }
 

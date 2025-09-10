@@ -4,11 +4,14 @@
  */
 
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { z } from 'zod';
 import type {
+  DueWithinOption,
   ListsToolArgs,
   Reminder,
   RemindersToolArgs,
 } from '../types/index.js';
+import { debugLog } from '../utils/logger.js';
 import { MESSAGES } from '../utils/constants.js';
 import type { ReminderFilters } from '../utils/dateFiltering.js';
 import {
@@ -24,48 +27,56 @@ import {
   type UpdateReminderData,
 } from '../utils/reminderRepository.js';
 import {
+  BulkCreateRemindersSchema,
+  BulkDeleteRemindersSchema,
+  BulkUpdateRemindersSchema,
   CreateReminderListSchema,
   CreateReminderSchema,
+  DeleteReminderListSchema,
   DeleteReminderSchema,
-  ListReminderListsSchema,
-  ListRemindersSchema,
-  MoveReminderSchema,
+  ReadReminderListsSchema,
+  ReadRemindersSchema,
+  UpdateReminderListSchema,
   UpdateReminderSchema,
   validateInput,
+  type BulkCreateRemindersInput,
+  type BulkDeleteRemindersInput,
+  type BulkUpdateRemindersInput,
+  type CreateReminderInput,
+  type DeleteReminderInput,
+  type ReadRemindersInput,
+  type UpdateReminderInput,
 } from '../validation/schemas.js';
 
 /**
  * Extracts validated arguments from tool args by removing the action field
- * @param args - Tool arguments containing action field
- * @param schema - Validation schema to apply
- * @returns Validated arguments without action field
  */
-function extractAndValidateArgs<T>(
+const extractAndValidateArgs = <T>(
   args: RemindersToolArgs | ListsToolArgs | undefined,
-  schema: any,
-): T {
-  const { action: _ignored, ...rest } = args ?? {};
+  schema: z.ZodSchema<T>,
+): T => {
+  const { action: _, ...rest } = args ?? {};
   return validateInput(schema, rest);
-}
+};
 
 /**
  * Creates a new reminder
  * @param args - Arguments for creating a reminder
  * @returns Result of the operation
  */
-export async function handleCreateReminder(
+export const handleCreateReminder = async (
   args: RemindersToolArgs,
-): Promise<CallToolResult> {
+): Promise<CallToolResult> => {
   return handleAsyncOperation(
     async () => {
-      const validatedArgs = extractAndValidateArgs<any>(args, CreateReminderSchema);
+      const validatedArgs = extractAndValidateArgs(args, CreateReminderSchema);
 
       const reminderData: CreateReminderData = {
         title: validatedArgs.title,
         dueDate: validatedArgs.dueDate,
         note: validatedArgs.note,
         url: validatedArgs.url,
-        list: validatedArgs.list,
+        list: validatedArgs.targetList,
       };
 
       await reminderRepository.createReminder(reminderData);
@@ -74,25 +85,21 @@ export async function handleCreateReminder(
       return MESSAGES.SUCCESS.REMINDER_CREATED(validatedArgs.title, hasNotes);
     },
     'create reminder',
-    (message) => ErrorResponseFactory.createSuccessResponse(message),
+    ErrorResponseFactory.createSuccessResponse,
   );
-}
+};
 
 /**
  * Updates an existing reminder or performs batch operations
  * @param args - Arguments for updating a reminder or batch operations
  * @returns Result of the operation
  */
-export async function handleUpdateReminder(
+export const handleUpdateReminder = async (
   args: RemindersToolArgs,
-): Promise<CallToolResult> {
+): Promise<CallToolResult> => {
   return handleAsyncOperation(
     async () => {
-      const validatedArgs = extractAndValidateArgs<any>(args, UpdateReminderSchema);
-
-      if (validatedArgs.batchOperation?.enabled) {
-        return await processBatchOrganization(validatedArgs.batchOperation);
-      }
+      const validatedArgs = extractAndValidateArgs(args, UpdateReminderSchema);
 
       const updateData: UpdateReminderData = {
         title: validatedArgs.title,
@@ -101,293 +108,250 @@ export async function handleUpdateReminder(
         note: validatedArgs.note,
         url: validatedArgs.url,
         completed: validatedArgs.completed,
-        list: validatedArgs.list,
+        list: validatedArgs.targetList,
       };
 
       await reminderRepository.updateReminder(updateData);
-
       return MESSAGES.SUCCESS.REMINDER_UPDATED(validatedArgs.title);
     },
     'update reminder',
-    (message) => ErrorResponseFactory.createSuccessResponse(message),
+    ErrorResponseFactory.createSuccessResponse,
   );
-}
+};
 
-/**
- * Processes batch organization operations
- */
-async function processBatchOrganization(batchOperation: {
-  strategy?: string;
-  createLists?: boolean;
-  sourceList?: string;
-  filter?: {
-    completed?: boolean;
-    search?: string;
-    dueWithin?: string;
-  };
-}): Promise<string> {
-  const filters = buildBatchFilters(batchOperation);
-  const reminders = await reminderRepository.findReminders(filters);
 
-  const strategy = batchOperation.strategy || 'category';
-  const groups = ReminderOrganizer.organizeReminders(reminders, strategy);
-
-  const results = await processBatchGroups(
-    groups,
-    batchOperation.createLists !== false,
-  );
-
-  return `Batch organization complete using ${strategy} strategy:\n${results.join('\n')}`;
-}
-
-/**
- * Builds filter criteria for batch operations
- */
-function buildBatchFilters(batchOperation: {
-  sourceList?: string;
-  filter?: {
-    completed?: boolean;
-    search?: string;
-    dueWithin?: string;
-  };
-}): ReminderFilters {
-  const filters: ReminderFilters = {};
-
-  if (batchOperation.sourceList) {
-    filters.list = batchOperation.sourceList;
-  }
-
-  if (batchOperation.filter) {
-    filters.showCompleted = batchOperation.filter.completed;
-    filters.search = batchOperation.filter.search;
-    filters.dueWithin = batchOperation.filter.dueWithin as
-      | 'today'
-      | 'tomorrow'
-      | 'this-week'
-      | 'overdue'
-      | 'no-date';
-  }
-
-  return filters;
-}
 
 /**
  * Processes grouped reminders for batch organization
  */
-async function processBatchGroups(
+const processBatchGroups = async (
   groups: Record<string, Reminder[]>,
   createLists: boolean,
-): Promise<string[]> {
+): Promise<string[]> => {
   const results: string[] = [];
 
   for (const [groupName, groupReminders] of Object.entries(groups)) {
     if (createLists) {
       await createGroupListIfNeeded(groupName, results);
     }
-
     await moveRemindersToGroup(groupReminders, groupName, results);
   }
 
   return results;
-}
+};
 
 /**
  * Creates a new list for a group if needed
  */
-async function createGroupListIfNeeded(
+const createGroupListIfNeeded = async (
   groupName: string,
   results: string[],
-): Promise<void> {
+): Promise<void> => {
   try {
     const listExists = await reminderRepository.listExists(groupName);
     if (!listExists) {
       await reminderRepository.createReminderList(groupName);
       results.push(`Created list: ${groupName}`);
     }
-  } catch (_error) {
-    // List might already exist or creation failed, continue silently
+  } catch (error) {
+    const errorMsg = `Failed to create list "${groupName}": ${(error as Error).message}`;
+    debugLog(errorMsg);
+    results.push(`${errorMsg.split(':')[0]}: List may already exist`);
   }
-}
+};
 
 /**
  * Moves reminders to their designated group
  */
-async function moveRemindersToGroup(
+const moveRemindersToGroup = async (
   reminders: Reminder[],
   groupName: string,
   results: string[],
-): Promise<void> {
-  for (const reminder of reminders) {
-    if (reminder.list !== groupName) {
-      try {
-        const moveData: MoveReminderData = {
-          title: reminder.title,
-          fromList: reminder.list,
-          toList: groupName,
-        };
+): Promise<void> => {
+  const remindersToMove = reminders.filter(reminder => reminder.list !== groupName);
+  
+  for (const reminder of remindersToMove) {
+    try {
+      const moveData: MoveReminderData = {
+        title: reminder.title,
+        fromList: reminder.list,
+        toList: groupName,
+      };
 
-        await reminderRepository.moveReminder(moveData);
-        results.push(`Moved "${reminder.title}" to ${groupName}`);
-      } catch (error) {
-        results.push(
-          `Failed to move "${reminder.title}": ${(error as Error).message}`,
-        );
-      }
+      await reminderRepository.moveReminder(moveData);
+      results.push(`Moved "${reminder.title}" to ${groupName}`);
+    } catch (error) {
+      results.push(
+        `Failed to move "${reminder.title}": ${(error as Error).message}`,
+      );
     }
   }
-}
+};
 
 /**
  * Deletes a reminder
  * @param args - Arguments for deleting a reminder
  * @returns Result of the operation
  */
-export async function handleDeleteReminder(
+export const handleDeleteReminder = async (
   args: RemindersToolArgs,
-): Promise<CallToolResult> {
+): Promise<CallToolResult> => {
   return handleAsyncOperation(
     async () => {
-      const validatedArgs = extractAndValidateArgs<any>(args, DeleteReminderSchema);
+      const validatedArgs = extractAndValidateArgs(args, DeleteReminderSchema);
 
       await reminderRepository.deleteReminder(
         validatedArgs.title,
-        validatedArgs.list,
+        validatedArgs.filterList,
       );
 
       return MESSAGES.SUCCESS.REMINDER_DELETED(validatedArgs.title);
     },
     'delete reminder',
-    (message) => ErrorResponseFactory.createSuccessResponse(message),
+    ErrorResponseFactory.createSuccessResponse,
   );
-}
+};
+
 
 /**
- * Moves a reminder between lists
- * @param args - Arguments for moving a reminder
- * @returns Result of the operation
- */
-export async function handleMoveReminder(
-  args: RemindersToolArgs,
-): Promise<CallToolResult> {
-  return handleAsyncOperation(
-    async () => {
-      const validatedArgs = extractAndValidateArgs<any>(args, MoveReminderSchema);
-
-      const moveData: MoveReminderData = {
-        title: validatedArgs.title,
-        fromList: validatedArgs.fromList,
-        toList: validatedArgs.toList,
-      };
-
-      await reminderRepository.moveReminder(moveData);
-
-      return MESSAGES.SUCCESS.REMINDER_MOVED(
-        validatedArgs.title,
-        validatedArgs.fromList,
-        validatedArgs.toList,
-      );
-    },
-    'move reminder',
-    (message) => ErrorResponseFactory.createSuccessResponse(message),
-  );
-}
-
-/**
- * Lists all reminder lists or creates a new one
+ * Reads all reminder lists or creates a new one with simplified logic
  * @param args - Optional arguments for creating a new list
  * @returns Result of the operation with the list of reminder lists in JSON format
  */
-export async function handleListReminderLists(
+export const handleReadReminderLists = async (
   args?: ListsToolArgs,
-): Promise<CallToolResult> {
+): Promise<CallToolResult> => {
   return handleJsonAsyncOperation(async () => {
-    const cleaned =
-      args && typeof args === 'object'
-        ? (() => {
-            const { action: _ignored, ...rest } = args;
-            return rest;
-          })()
-        : undefined;
-    const validatedArgs = cleaned
-      ? validateInput(ListReminderListsSchema, cleaned)
+    if (!args || typeof args !== 'object') {
+      const lists = await reminderRepository.findAllLists();
+      return createReadResponse(lists);
+    }
+
+    const { action: _, ...rest } = args;
+    const validatedArgs = rest && Object.keys(rest).length > 0 
+      ? validateInput(ReadReminderListsSchema, rest) 
       : undefined;
 
     if (validatedArgs?.createNew) {
-      const createResult = await handleCreateReminderList({
-        action: 'create',
-        name: validatedArgs.createNew.name,
-      });
-      if (createResult.isError) {
-        throw new Error('Failed to create reminder list');
-      }
-      return { message: 'List created successfully' };
+      await reminderRepository.createReminderList(validatedArgs.createNew.name);
+      return { message: `List "${validatedArgs.createNew.name}" created successfully` };
     }
 
     const lists = await reminderRepository.findAllLists();
-
-    return {
-      lists: lists.map((list) => ({
-        id: list.id,
-        title: list.title,
-      })),
-      total: lists.length,
-    };
-  }, 'list reminder lists');
-}
+    return createReadResponse(lists);
+  }, 'read reminder lists');
+};
 
 /**
- * Lists reminders from a specific list or all reminders
- * @param args - Arguments for listing reminders
+ * Creates a standardized read response format
+ */
+const createReadResponse = (lists: { id: number; title: string }[]) => ({
+  lists: lists.map(({ id, title }) => ({ id, title })),
+  total: lists.length,
+});
+
+/**
+ * Reads reminders from a specific list or all reminders
+ * @param args - Arguments for reading reminders
  * @returns Result of the operation with the list of reminders in JSON format
  */
-export async function handleListReminders(
+export const handleReadReminders = async (
   args: RemindersToolArgs,
-): Promise<CallToolResult> {
+): Promise<CallToolResult> => {
   return handleJsonAsyncOperation(async () => {
-    const validatedArgs = extractAndValidateArgs<any>(args, ListRemindersSchema);
-
-    const filters = buildListReminderFilters(validatedArgs);
+    const validatedArgs = extractAndValidateArgs(args, ReadRemindersSchema);
+    
+    // Handle intelligent default list selection when no filterList is provided
+    // Only apply default list selection if no other filters are specified
+    let effectiveFilterList = validatedArgs.filterList;
+    
+    if (!effectiveFilterList && !validatedArgs.search && !validatedArgs.dueWithin) {
+      // Get all reminders to determine available lists
+      const allReminders = await reminderRepository.findReminders({
+        showCompleted: validatedArgs.showCompleted
+      });
+      
+      // Extract unique lists from reminders
+      const availableLists = [...new Set(allReminders.map(r => r.list))];
+      
+      // Apply intelligent default list selection logic
+      if (availableLists.includes('Reminders')) {
+        effectiveFilterList = 'Reminders';
+      } else if (availableLists.includes('提醒事项')) {
+        effectiveFilterList = '提醒事项';
+      } else if (availableLists.length > 0) {
+        effectiveFilterList = availableLists[0]; // First available list in order found
+      }
+    }
+    
+    const filters = buildReadReminderFilters({
+      ...validatedArgs,
+      filterList: effectiveFilterList
+    });
+    
     const reminders = await reminderRepository.findReminders(filters);
+    return createReminderReadResponse(reminders, filters);
+  }, 'read reminders');
+};
 
-    return createReminderListResponse(reminders, filters);
-  }, 'list reminders');
-}
+/**
+ * Alias for handleReadReminders to maintain backward compatibility
+ */
+export const handleListReminders = handleReadReminders;
+
+/**
+ * Moves a reminder between lists
+ */
+export const handleMoveReminder = async (
+  args: RemindersToolArgs,
+): Promise<CallToolResult> => {
+  return handleAsyncOperation(
+    async () => {
+      const { title, fromList, toList } = args as any; // Simple validation for backward compatibility
+      
+      const moveData: MoveReminderData = {
+        title,
+        fromList,
+        toList,
+      };
+
+      await reminderRepository.moveReminder(moveData);
+      return `Moved "${title}" from "${fromList}" to "${toList}"`;
+    },
+    'move reminder',
+    ErrorResponseFactory.createSuccessResponse,
+  );
+};
 
 /**
  * Builds filter criteria from validated arguments
  */
-function buildListReminderFilters(validatedArgs: {
-  list?: string;
+const buildReadReminderFilters = (validatedArgs: {
+  filterList?: string;
   showCompleted?: boolean;
   search?: string;
-  dueWithin?: string;
-}): ReminderFilters {
-  return {
-    list: validatedArgs.list,
-    showCompleted: validatedArgs.showCompleted === true,
-    search: validatedArgs.search,
-    dueWithin: validatedArgs.dueWithin as
-      | 'today'
-      | 'tomorrow'
-      | 'this-week'
-      | 'overdue'
-      | 'no-date',
-  };
-}
+  dueWithin?: DueWithinOption;
+}): ReminderFilters => ({
+  list: validatedArgs.filterList,
+  showCompleted: validatedArgs.showCompleted === true,
+  search: validatedArgs.search,
+  dueWithin: validatedArgs.dueWithin,
+});
 
 /**
- * Creates a formatted response for reminder lists
+ * Creates a formatted response for reminder reads
  */
-function createReminderListResponse(
+const createReminderReadResponse = (
   reminders: Reminder[],
   filters: ReminderFilters,
-) {
-  const mappedReminders = reminders.map((reminder) => ({
+) => {
+  const mappedReminders = reminders.map(reminder => ({
     title: reminder.title,
     list: reminder.list,
     isCompleted: reminder.isCompleted === true,
-    dueDate: reminder.dueDate || null,
-    notes: reminder.notes || null,
+    dueDate: reminder.dueDate ?? null,
+    notes: reminder.notes ?? null,
+    url: reminder.url ?? null,
   }));
 
   return {
@@ -395,30 +359,248 @@ function createReminderListResponse(
     total: mappedReminders.length,
     filter: {
       list: filters.list,
-      showCompleted: filters.showCompleted || false,
-      search: filters.search || null,
-      dueWithin: filters.dueWithin || null,
+      showCompleted: filters.showCompleted ?? false,
+      search: filters.search ?? null,
+      dueWithin: filters.dueWithin ?? null,
     },
   };
-}
+};
 
 /**
  * Creates a new reminder list
  * @param args - Arguments for creating a reminder list
  * @returns Result of the operation
  */
-export async function handleCreateReminderList(
+export const handleCreateReminderList = async (
   args: ListsToolArgs,
-): Promise<CallToolResult> {
+): Promise<CallToolResult> => {
   return handleAsyncOperation(
     async () => {
-      const validatedArgs = extractAndValidateArgs<any>(args, CreateReminderListSchema);
-
+      const validatedArgs = extractAndValidateArgs(args, CreateReminderListSchema);
       await reminderRepository.createReminderList(validatedArgs.name);
-
       return MESSAGES.SUCCESS.LIST_CREATED(validatedArgs.name);
     },
     'create reminder list',
-    (message) => ErrorResponseFactory.createSuccessResponse(message),
+    ErrorResponseFactory.createSuccessResponse,
   );
-}
+};
+
+/**
+ * Updates a reminder list name
+ * @param args - Arguments for updating a reminder list
+ * @returns Result of the operation
+ */
+export const handleUpdateReminderList = async (
+  args: ListsToolArgs,
+): Promise<CallToolResult> => {
+  return handleAsyncOperation(
+    async () => {
+      const validatedArgs = extractAndValidateArgs(args, UpdateReminderListSchema);
+      await reminderRepository.updateReminderList(validatedArgs.name, validatedArgs.newName);
+      return MESSAGES.SUCCESS.LIST_UPDATED(validatedArgs.name, validatedArgs.newName);
+    },
+    'update reminder list',
+    ErrorResponseFactory.createSuccessResponse,
+  );
+};
+
+/**
+ * Deletes a reminder list
+ * @param args - Arguments for deleting a reminder list
+ * @returns Result of the operation
+ */
+export const handleDeleteReminderList = async (
+  args: ListsToolArgs,
+): Promise<CallToolResult> => {
+  return handleAsyncOperation(
+    async () => {
+      const validatedArgs = extractAndValidateArgs(args, DeleteReminderListSchema);
+      await reminderRepository.deleteReminderList(validatedArgs.name);
+      return MESSAGES.SUCCESS.LIST_DELETED(validatedArgs.name);
+    },
+    'delete reminder list',
+    ErrorResponseFactory.createSuccessResponse,
+  );
+};
+
+
+/**
+ * Creates multiple reminders in bulk
+ * @param args - Arguments for bulk creation
+ * @returns Result of the operation
+ */
+export const handleBulkCreateReminders = async (
+  args: RemindersToolArgs,
+): Promise<CallToolResult> => {
+  return handleAsyncOperation(
+    async () => {
+      const validatedArgs = extractAndValidateArgs(args, BulkCreateRemindersSchema);
+      
+      const results = await Promise.allSettled(
+        validatedArgs.items.map(async (item) => {
+          const reminderData: CreateReminderData = {
+            title: item.title,
+            dueDate: item.dueDate,
+            note: item.note,
+            url: item.url,
+            list: item.targetList,
+          };
+          
+          await reminderRepository.createReminder(reminderData);
+          return `Created: ${item.title}`;
+        })
+      );
+      
+      const messages = results.map((result, index) => 
+        result.status === 'fulfilled' 
+          ? result.value 
+          : `Failed to create "${validatedArgs.items[index].title}": ${result.reason?.message ?? 'Unknown error'}`
+      );
+      
+      return `Bulk creation complete:\n${messages.join('\n')}`;
+    },
+    'bulk create reminders',
+    ErrorResponseFactory.createSuccessResponse,
+  );
+};
+
+/**
+ * Handles organization of reminders using specified strategy
+ */
+const handleReminderOrganization = async (validatedArgs: {
+  organizeBy: string;
+  criteria: any;
+  createLists?: boolean;
+}): Promise<string> => {
+  const filters = buildBulkFilters(validatedArgs.criteria);
+  const reminders = await reminderRepository.findReminders(filters);
+  
+  if (reminders.length === 0) {
+    return 'No reminders found matching the specified criteria for organization.';
+  }
+  
+  const groups = ReminderOrganizer.organizeReminders(reminders, validatedArgs.organizeBy);
+  const shouldCreateLists = validatedArgs.createLists !== false;
+  
+  const results = await processBatchGroups(groups, shouldCreateLists);
+  return `Organization complete using ${validatedArgs.organizeBy} strategy:\n${results.join('\n')}`;
+};
+
+/**
+ * Handles regular bulk updates of reminders
+ */
+const handleRegularBulkUpdate = async (validatedArgs: {
+  criteria: any;
+  updates: any;
+}): Promise<string> => {
+  const filters = buildBulkFilters(validatedArgs.criteria);
+  const reminders = await reminderRepository.findReminders(filters);
+  
+  if (reminders.length === 0) {
+    return 'No reminders found matching the specified criteria for bulk update.';
+  }
+  
+  const results = await Promise.allSettled(
+    reminders.map(async (reminder) => {
+      const updateData: UpdateReminderData = {
+        title: reminder.title,
+        newTitle: validatedArgs.updates.newTitle,
+        dueDate: validatedArgs.updates.dueDate,
+        note: validatedArgs.updates.note,
+        url: validatedArgs.updates.url,
+        completed: validatedArgs.updates.completed,
+        list: validatedArgs.updates.targetList,
+      };
+      
+      await reminderRepository.updateReminder(updateData);
+      return `Updated: ${reminder.title}`;
+    })
+  );
+  
+  const messages = results.map((result, index) => 
+    result.status === 'fulfilled' 
+      ? result.value 
+      : `Failed to update "${reminders[index].title}": ${result.reason?.message ?? 'Unknown error'}`
+  );
+  
+  return `Bulk update complete (${messages.length} reminders):\n${messages.join('\n')}`;
+};
+
+/**
+ * Updates multiple reminders in bulk based on criteria
+ * @param args - Arguments for bulk update
+ * @returns Result of the operation
+ */
+export const handleBulkUpdateReminders = async (
+  args: RemindersToolArgs,
+): Promise<CallToolResult> => {
+  return handleAsyncOperation(
+    async () => {
+      const validatedArgs = extractAndValidateArgs(args, BulkUpdateRemindersSchema);
+      
+      return validatedArgs.organizeBy
+        ? handleReminderOrganization({
+            organizeBy: validatedArgs.organizeBy,
+            criteria: validatedArgs.criteria,
+            createLists: validatedArgs.createLists,
+          })
+        : handleRegularBulkUpdate(validatedArgs);
+    },
+    'bulk update reminders',
+    ErrorResponseFactory.createSuccessResponse,
+  );
+};
+
+/**
+ * Deletes multiple reminders in bulk based on criteria
+ * @param args - Arguments for bulk deletion
+ * @returns Result of the operation
+ */
+export const handleBulkDeleteReminders = async (
+  args: RemindersToolArgs,
+): Promise<CallToolResult> => {
+  return handleAsyncOperation(
+    async () => {
+      const validatedArgs = extractAndValidateArgs(args, BulkDeleteRemindersSchema);
+      
+      const filters = buildBulkFilters(validatedArgs.criteria);
+      const reminders = await reminderRepository.findReminders(filters);
+      
+      if (reminders.length === 0) {
+        return 'No reminders found matching the specified criteria for bulk deletion.';
+      }
+      
+      const results = await Promise.allSettled(
+        reminders.map(async (reminder) => {
+          await reminderRepository.deleteReminder(reminder.title, reminder.list);
+          return `Deleted: ${reminder.title}`;
+        })
+      );
+      
+      const messages = results.map((result, index) => 
+        result.status === 'fulfilled' 
+          ? result.value 
+          : `Failed to delete "${reminders[index].title}": ${result.reason?.message ?? 'Unknown error'}`
+      );
+      
+      return `Bulk deletion complete (${messages.length} reminders):\n${messages.join('\n')}`;
+    },
+    'bulk delete reminders',
+    ErrorResponseFactory.createSuccessResponse,
+  );
+};
+
+/**
+ * Builds filter criteria for bulk operations
+ */
+const buildBulkFilters = (criteria: {
+  search?: string;
+  dueWithin?: DueWithinOption;
+  completed?: boolean;
+  sourceList?: string;
+}): ReminderFilters => ({
+  list: criteria.sourceList,
+  showCompleted: criteria.completed,
+  search: criteria.search,
+  dueWithin: criteria.dueWithin,
+});

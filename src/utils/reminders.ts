@@ -29,97 +29,122 @@ export class RemindersManager {
   }
 
   private findBinaryPath(): string {
-    // Use centralized binary path resolution
-    // Find project root by searching for package.json
+    const projectRoot = this.findProjectRoot();
+    const possiblePaths = this.getBinaryPaths(projectRoot);
+    return this.selectBinaryPath(possiblePaths, projectRoot);
+  }
 
-    let projectRoot: string;
-
-    // Check if we're in test environment
+  /**
+   * Finds the project root directory using file location approach
+   */
+  private findProjectRoot(): string {
+    // Guard clause: use mock path in test environment
     if (process.env.NODE_ENV === 'test') {
-      // In test environment, use cwd method
-      projectRoot = process.cwd();
-      const maxDepth = 10;
-      let depth = 0;
-
-      while (
-        !fs.existsSync(path.join(projectRoot, 'package.json')) &&
-        depth < maxDepth
-      ) {
-        const parent = path.dirname(projectRoot);
-        if (parent === projectRoot) break;
-        projectRoot = parent;
-        depth++;
-      }
-    } else {
-      // In production/development, try to find project root based on current file location
-      try {
-        // Get the directory of the current file
-        const currentFileUrl = import.meta.url;
-        const currentFilePath = new URL(currentFileUrl).pathname;
-        const currentDir = path.dirname(currentFilePath);
-
-        // Start from the current file's directory and go up to find package.json
-        projectRoot = currentDir;
-        let found = false;
-
-        // Look for package.json by going up the directory tree
-        for (let i = 0; i < 10; i++) {
-          if (fs.existsSync(path.join(projectRoot, 'package.json'))) {
-            found = true;
-            break;
-          }
-          const parent = path.dirname(projectRoot);
-          if (parent === projectRoot) break; // Reached root
-          projectRoot = parent;
-        }
-
-        // If we couldn't find package.json from file location, fall back to cwd
-        if (!found) {
-          logger.debug(
-            'Could not find package.json from file location, falling back to cwd',
-          );
-          projectRoot = process.cwd();
-          const maxDepth = 10;
-          let depth = 0;
-
-          while (
-            !fs.existsSync(path.join(projectRoot, 'package.json')) &&
-            depth < maxDepth
-          ) {
-            const parent = path.dirname(projectRoot);
-            if (parent === projectRoot) break;
-            projectRoot = parent;
-            depth++;
-          }
-        }
-      } catch (error) {
-        logger.debug(
-          'Error getting file location, falling back to cwd:',
-          error,
-        );
-        // Fallback to cwd method
-        projectRoot = process.cwd();
-        const maxDepth = 10;
-        let depth = 0;
-
-        while (
-          !fs.existsSync(path.join(projectRoot, 'package.json')) &&
-          depth < maxDepth
-        ) {
-          const parent = path.dirname(projectRoot);
-          if (parent === projectRoot) break;
-          projectRoot = parent;
-          depth++;
-        }
-      }
+      return this.findProjectRootFromCwd();
     }
 
-    // Try standard binary locations
-    const possiblePaths = [
+    try {
+      // First try using the centralized utility (works when run from project dir)
+      return findProjectRoot();
+    } catch (error) {
+      logger.debug('Error using findProjectRoot utility, falling back to file location:', error);
+      return this.findProjectRootFromFileLocation();
+    }
+  }
+
+  /**
+   * Finds project root from current working directory
+   */
+  private findProjectRootFromCwd(): string {
+    let projectRoot = process.cwd();
+    const maxDepth = 10;
+    let depth = 0;
+
+    while (depth < maxDepth) {
+      if (this.isCorrectProjectRoot(projectRoot)) {
+        return projectRoot;
+      }
+      const parent = path.dirname(projectRoot);
+      if (parent === projectRoot) break;
+      projectRoot = parent;
+      depth++;
+    }
+
+    return projectRoot;
+  }
+
+  /**
+   * Finds project root from file location (works when run from outside project)
+   */
+  private findProjectRootFromFileLocation(): string {
+    try {
+      // Guard clause for test environment
+      if (process.env.NODE_ENV === 'test') {
+        return this.findProjectRootFromCwd();
+      }
+      
+      // Get the directory of the current file
+      const currentFileUrl = import.meta.url;
+      const currentFilePath = new URL(currentFileUrl).pathname;
+      const currentDir = path.dirname(currentFilePath);
+
+      // Start from the current file's directory and go up to find package.json
+      let projectRoot = currentDir;
+      const maxDepth = 10;
+
+      // Look for the correct package.json by going up the directory tree
+      for (let i = 0; i < maxDepth; i++) {
+        if (this.isCorrectProjectRoot(projectRoot)) {
+          logger.debug(`Project root found from file location: ${projectRoot}`);
+          return projectRoot;
+        }
+        const parent = path.dirname(projectRoot);
+        if (parent === projectRoot) break; // Reached filesystem root
+        projectRoot = parent;
+      }
+
+      // If we couldn't find the correct package.json from file location, fall back to cwd
+      logger.debug('Could not find correct package.json from file location, falling back to cwd');
+      return this.findProjectRootFromCwd();
+    } catch (error) {
+      logger.debug('Error getting file location, falling back to cwd:', error);
+      return this.findProjectRootFromCwd();
+    }
+  }
+
+  /**
+   * Checks if a directory contains the correct package.json for this project
+   */
+  private isCorrectProjectRoot(dir: string): boolean {
+    const packageJsonPath = path.join(dir, 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+      return false;
+    }
+
+    try {
+      const packageContent = fs.readFileSync(packageJsonPath, 'utf8');
+      const packageData = JSON.parse(packageContent);
+      return packageData.name === 'mcp-server-apple-reminders';
+    } catch (error) {
+      logger.debug(`Failed to parse package.json at ${packageJsonPath}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Gets possible binary paths based on project root
+   */
+  private getBinaryPaths(projectRoot: string): string[] {
+    return [
       path.resolve(projectRoot, 'dist', 'swift', 'bin', 'GetReminders'),
       path.resolve(projectRoot, 'src', 'swift', 'bin', 'GetReminders'),
     ];
+  }
 
+  /**
+   * Selects the appropriate binary path from available options
+   */
+  private selectBinaryPath(possiblePaths: string[], projectRoot: string): string {
     const { path: securePath } = findSecureBinaryPath(
       possiblePaths,
       getEnvironmentBinaryConfig(),
@@ -131,13 +156,7 @@ export class RemindersManager {
     }
 
     // Fallback to default path
-    const defaultPath = path.resolve(
-      projectRoot,
-      'dist',
-      'swift',
-      'bin',
-      'GetReminders',
-    );
+    const defaultPath = path.resolve(projectRoot, 'dist', 'swift', 'bin', 'GetReminders');
     logger.warn(`⚠️  Using fallback binary path: ${defaultPath}`);
     return defaultPath;
   }
@@ -277,7 +296,7 @@ Or rebuild the binary:
   }
 
   /**
-   * Parse the output from the Swift binary
+   * Parse the output from the Swift binary with improved structure
    * @param output The raw output from the Swift binary
    * @returns Parsed reminders data
    */
@@ -285,25 +304,21 @@ Or rebuild the binary:
     lists: ReminderList[];
     reminders: Reminder[];
   } {
-    logger.debug(
-      `Starting to parse Swift output, ${output.split('\n').length} lines`,
-    );
+    const lineCount = output.split('\n').length;
+    logger.debug(`Starting to parse Swift output, ${lineCount} lines`);
 
     const sections = this.splitIntoSections(output);
     const lists = this.parseLists(sections.lists);
-    const reminders = this.parseReminders(sections.reminders);
+    const rawReminders = this.parseReminders(sections.reminders);
+    
+    // Normalize reminder completion status
+    const reminders = rawReminders.map((reminder) => ({
+      ...reminder,
+      isCompleted: this.normalizeIsCompleted(reminder.isCompleted),
+    }));
 
-    logger.debug(
-      `Finished parsing: ${lists.length} lists, ${reminders.length} reminders`,
-    );
-
-    return {
-      lists,
-      reminders: reminders.map((reminder) => ({
-        ...reminder,
-        isCompleted: this.normalizeIsCompleted(reminder.isCompleted),
-      })),
-    };
+    logger.debug(`Finished parsing: ${lists.length} lists, ${reminders.length} reminders`);
+    return { lists, reminders };
   }
 
   /**
@@ -344,7 +359,7 @@ Or rebuild the binary:
   }
 
   /**
-   * Parse reminders from lines
+   * Parse reminders from lines with null filtering
    */
   private parseReminders(lines: string[]): Reminder[] {
     const reminderBlocks = this.groupReminderLines(lines);
@@ -386,24 +401,13 @@ Or rebuild the binary:
     const reminder: Partial<Reminder> = { isCompleted: false };
 
     const fieldParsers: Record<string, (value: string) => void> = {
-      'Title:': (value) => {
-        reminder.title = value.trim();
-      },
-      'Due Date:': (value) => {
-        reminder.dueDate = value.trim();
-      },
-      'Notes:': (value) => {
-        reminder.notes = value.trim();
-      },
-      'List:': (value) => {
-        reminder.list = value.trim();
-      },
-      'Status:': (value) => {
-        reminder.isCompleted = value.trim() === 'Status: Completed';
-      },
-      'Raw isCompleted value:': (value) => {
-        reminder.isCompleted = value.trim().toLowerCase() === 'true';
-      },
+      'Title:': (value) => reminder.title = value.trim(),
+      'Due Date:': (value) => reminder.dueDate = value.trim(),
+      'Notes:': (value) => reminder.notes = value.trim(),
+      'URL:': (value) => reminder.url = value.trim(),
+      'List:': (value) => reminder.list = value.trim(),
+      'Status:': (value) => reminder.isCompleted = value.trim() === 'Status: Completed',
+      'Raw isCompleted value:': (value) => reminder.isCompleted = value.trim().toLowerCase() === 'true'
     };
 
     for (const line of lines) {

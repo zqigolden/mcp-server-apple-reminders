@@ -7,11 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2025-09-10
+
+### Added
+
+- Complete CRUD operations for reminder lists with unified interface
+- Enhanced URL support with structured format for consistent parsing
+- Comprehensive input validation and security enhancements
+- Advanced test coverage with integration tests for URL handling
+
+### Changed
+
+- **Enhanced**: URL handling with structured format supporting multiple URL sections
+- **Improved**: Error handling and code quality across all modules
+- **Optimized**: MCP tools with simplified pure CRUD operations architecture
+- **Enhanced**: Reminder functionality with better URL integration
+- **Updated**: Test suite with improved mocking and expectations
+
+### Fixed
+
+- URL validation pattern to allow URLs without explicit paths (e.g., https://google.com)
+- Multiple URL sections parsing in structured format
+- Project root detection with enhanced fallback mechanisms
+- Critical test mocking issues and expectations alignment
+- Input validation edge cases and security vulnerabilities
+- Package.json validation for proper project root identification
+
 ## [0.7.3] - 2025-09-03
+
+### Added
+
+- Biome linting for consistent code formatting and quality checks
+- Enhanced development workflow with unified cursor rules and standards
+- Consolidated development guide for improved onboarding
+
+### Changed
+
+- **Refactored**: Enhanced utility classes and improved code organization
+- **Refactored**: Improved server architecture and request handling
+- **Enhanced**: Tool handlers with better error handling and validation
+- **Updated**: TypeScript configuration for better development experience
+- **Improved**: Type definitions and validation schemas for enhanced type safety
+- **Enhanced**: Test suites for improved coverage and reliability
+- **Updated**: Documentation with improved examples and comprehensive guides
 
 ### Fixed
 
 - Improved unicode handling in AppleScript execution
+- Removed unnecessary permission checks from MCP handlers
+- Enhanced deployment process and resolved build issues
+- Extracted common patterns to reduce code duplication
 
 ## [0.7.2] - 2025-01-13
 
@@ -214,7 +259,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic Apple Reminders integration
 - Foundation for macOS native reminder management
 
-[unreleased]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.3...HEAD
+[unreleased]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.3...v0.8.0
 [0.7.3]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.0...v0.7.1

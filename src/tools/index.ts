@@ -9,13 +9,17 @@ import { MESSAGES } from '../utils/constants.js';
 import { debugLog } from '../utils/logger.js';
 import { TOOLS } from './definitions.js';
 import {
+  handleBulkCreateReminders,
+  handleBulkDeleteReminders,
+  handleBulkUpdateReminders,
   handleCreateReminder,
   handleCreateReminderList,
   handleDeleteReminder,
-  handleListReminderLists,
-  handleListReminders,
-  handleMoveReminder,
+  handleDeleteReminderList,
+  handleReadReminderLists,
+  handleReadReminders,
   handleUpdateReminder,
+  handleUpdateReminderList,
 } from './handlers.js';
 
 /**
@@ -34,35 +38,21 @@ export async function handleToolCall(
     case 'reminders': {
       const action = args?.action;
       switch (action) {
+        case 'read':
         case 'list':
-          return handleListReminders(args);
+          return handleReadReminders(args);
         case 'create':
           return handleCreateReminder(args);
         case 'update':
           return handleUpdateReminder(args);
         case 'delete':
           return handleDeleteReminder(args);
-        case 'move':
-          return handleMoveReminder(args);
-        case 'organize': {
-          // Translate to batch operation for the update handler
-          const batchArgs: RemindersToolArgs = {
-            action: 'update',
-            title: 'batch',
-            batchOperation: {
-              enabled: true,
-              strategy: args?.strategy,
-              sourceList: args?.sourceList,
-              createLists: args?.createLists,
-              filter: {
-                completed: args?.completed,
-                search: args?.search,
-                dueWithin: args?.dueWithin,
-              },
-            },
-          };
-          return handleUpdateReminder(batchArgs);
-        }
+        case 'bulk_create':
+          return handleBulkCreateReminders(args);
+        case 'bulk_update':
+          return handleBulkUpdateReminders(args);
+        case 'bulk_delete':
+          return handleBulkDeleteReminders(args);
         default:
           return {
             content: [
@@ -81,13 +71,57 @@ export async function handleToolCall(
     case 'lists': {
       const action = args?.action;
       switch (action) {
-        case 'list':
-          return handleListReminderLists({ action: 'list' });
-        case 'create':
+        case 'read':
+          return handleReadReminderLists({ action: 'read' });
+        case 'create': {
+          const listArgs = args as ListsToolArgs;
+          if (!listArgs.name) {
+            return {
+              content: [{
+                type: 'text',
+                text: MESSAGES.ERROR.INPUT_VALIDATION_FAILED('Name is required for list creation')
+              }],
+              isError: true,
+            };
+          }
           return handleCreateReminderList({
             action: 'create',
-            name: (args as ListsToolArgs)?.name,
+            name: listArgs.name,
           });
+        }
+        case 'update': {
+          const listArgs = args as ListsToolArgs;
+          if (!listArgs.name || !listArgs.newName) {
+            return {
+              content: [{
+                type: 'text',
+                text: MESSAGES.ERROR.INPUT_VALIDATION_FAILED('Name and newName are required for list update')
+              }],
+              isError: true,
+            };
+          }
+          return handleUpdateReminderList({
+            action: 'update',
+            name: listArgs.name,
+            newName: listArgs.newName,
+          });
+        }
+        case 'delete': {
+          const listArgs = args as ListsToolArgs;
+          if (!listArgs.name) {
+            return {
+              content: [{
+                type: 'text',
+                text: MESSAGES.ERROR.INPUT_VALIDATION_FAILED('Name is required for list deletion')
+              }],
+              isError: true,
+            };
+          }
+          return handleDeleteReminderList({
+            action: 'delete',
+            name: listArgs.name,
+          });
+        }
         default:
           return {
             content: [
