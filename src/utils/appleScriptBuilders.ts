@@ -283,3 +283,53 @@ export class ReminderListCreationBuilder {
     return createRemindersScript(scriptBody);
   }
 }
+
+/**
+ * Builder for AppleScript reminder list update commands
+ */
+export class ReminderListUpdateBuilder {
+  private currentName: string;
+  private newName: string;
+
+  constructor(currentName: string, newName: string) {
+    this.currentName = currentName;
+    this.newName = newName;
+  }
+
+  build(): string {
+    const scriptParts = [
+      `set targetList to list ${quoteAppleScriptString(this.currentName)}`,
+      'if targetList exists then',
+      `  set name of targetList to ${quoteAppleScriptString(this.newName)}`,
+      'else',
+      `  error ${quoteAppleScriptString(`List not found: ${this.currentName}`)}`,
+      'end if',
+    ];
+
+    return createRemindersScript(scriptParts.join('\n'));
+  }
+}
+
+/**
+ * Builder for AppleScript reminder list deletion commands
+ */
+export class ReminderListDeletionBuilder {
+  private name: string;
+
+  constructor(name: string) {
+    this.name = name;
+  }
+
+  build(): string {
+    const scriptParts = [
+      `set targetList to list ${quoteAppleScriptString(this.name)}`,
+      'if targetList exists then',
+      '  delete targetList',
+      'else',
+      `  error ${quoteAppleScriptString(`List not found: ${this.name}`)}`,
+      'end if',
+    ];
+
+    return createRemindersScript(scriptParts.join('\n'));
+  }
+}

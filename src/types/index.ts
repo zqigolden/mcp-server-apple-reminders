@@ -45,7 +45,7 @@ export interface ReminderResult {
  * Shared type constants for better type safety and consistency
  */
 export type ReminderAction = 'read' | 'list' | 'create' | 'update' | 'delete' | 'bulk_create' | 'bulk_update' | 'bulk_delete';
-export type ListAction = 'read' | 'create';
+export type ListAction = 'read' | 'create' | 'update' | 'delete';
 export type DueWithinOption = 'today' | 'tomorrow' | 'this-week' | 'overdue' | 'no-date';
 export type OrganizeStrategy = 'priority' | 'due_date' | 'category' | 'completion_status';
 
@@ -105,6 +105,7 @@ export interface RemindersToolArgs extends BaseToolArgs {
 export interface ListsToolArgs extends BaseToolArgs {
   action: ListAction;
   name?: string;
+  newName?: string;
 }
 
 /**
@@ -119,6 +120,8 @@ export type BulkUpdateReminderArgs = { action: 'bulk_update'; criteria: { search
 export type BulkDeleteReminderArgs = { action: 'bulk_delete'; criteria: { search?: string; dueWithin?: DueWithinOption; completed?: boolean; sourceList?: string } };
 
 export type CreateListArgs = { action: 'create'; name: string };
+export type UpdateListArgs = { action: 'update'; name: string; newName: string };
+export type DeleteListArgs = { action: 'delete'; name: string };
 export type ReadListsArgs = { action: 'read' };
 
 

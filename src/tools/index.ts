@@ -15,9 +15,11 @@ import {
   handleCreateReminder,
   handleCreateReminderList,
   handleDeleteReminder,
+  handleDeleteReminderList,
   handleReadReminderLists,
   handleReadReminders,
   handleUpdateReminder,
+  handleUpdateReminderList,
 } from './handlers.js';
 
 /**
@@ -84,6 +86,39 @@ export async function handleToolCall(
           }
           return handleCreateReminderList({
             action: 'create',
+            name: listArgs.name,
+          });
+        }
+        case 'update': {
+          const listArgs = args as ListsToolArgs;
+          if (!listArgs.name || !listArgs.newName) {
+            return {
+              content: [{
+                type: 'text',
+                text: MESSAGES.ERROR.INPUT_VALIDATION_FAILED('Name and newName are required for list update')
+              }],
+              isError: true,
+            };
+          }
+          return handleUpdateReminderList({
+            action: 'update',
+            name: listArgs.name,
+            newName: listArgs.newName,
+          });
+        }
+        case 'delete': {
+          const listArgs = args as ListsToolArgs;
+          if (!listArgs.name) {
+            return {
+              content: [{
+                type: 'text',
+                text: MESSAGES.ERROR.INPUT_VALIDATION_FAILED('Name is required for list deletion')
+              }],
+              isError: true,
+            };
+          }
+          return handleDeleteReminderList({
+            action: 'delete',
             name: listArgs.name,
           });
         }
