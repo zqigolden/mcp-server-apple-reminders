@@ -366,7 +366,7 @@ describe('handleListReminders', () => {
   });
 
   test('should use default list "Reminders" when only action is provided', async () => {
-    const mockReminders: Reminder[] = [
+    const allReminders: Reminder[] = [
       {
         title: 'Default List Task',
         list: 'Reminders',
@@ -383,7 +383,14 @@ describe('handleListReminders', () => {
       reminderRepository.findReminders as jest.MockedFunction<
         (filters?: ReminderFilters) => Promise<Reminder[]>
       >
-    ).mockResolvedValue(mockReminders);
+    ).mockImplementation(async (filters) => {
+      // If no list filter or no filters at all, return all reminders for list discovery
+      if (!filters || !filters.list) {
+        return allReminders;
+      }
+      // If specific list filter, return only reminders from that list
+      return allReminders.filter(r => r.list === filters.list);
+    });
 
     const result = await handleListReminders({ action: 'list' });
 
@@ -404,7 +411,7 @@ describe('handleListReminders', () => {
   });
 
   test('should intelligently choose first available list when "Reminders" not found', async () => {
-    const mockReminders: Reminder[] = [
+    const allReminders: Reminder[] = [
       {
         title: 'Work Task',
         list: 'Work',
@@ -421,7 +428,14 @@ describe('handleListReminders', () => {
       reminderRepository.findReminders as jest.MockedFunction<
         (filters?: ReminderFilters) => Promise<Reminder[]>
       >
-    ).mockResolvedValue(mockReminders);
+    ).mockImplementation(async (filters) => {
+      // If no list filter or no filters at all, return all reminders for list discovery
+      if (!filters || !filters.list) {
+        return allReminders;
+      }
+      // If specific list filter, return only reminders from that list
+      return allReminders.filter(r => r.list === filters.list);
+    });
 
     const result = await handleListReminders({ action: 'list' });
 
@@ -434,7 +448,7 @@ describe('handleListReminders', () => {
   });
 
   test('should use Chinese default list name when available', async () => {
-    const mockReminders: Reminder[] = [
+    const allReminders: Reminder[] = [
       {
         title: 'Chinese Task',
         list: '提醒事项',
@@ -451,7 +465,14 @@ describe('handleListReminders', () => {
       reminderRepository.findReminders as jest.MockedFunction<
         (filters?: ReminderFilters) => Promise<Reminder[]>
       >
-    ).mockResolvedValue(mockReminders);
+    ).mockImplementation(async (filters) => {
+      // If no list filter or no filters at all, return all reminders for list discovery
+      if (!filters || !filters.list) {
+        return allReminders;
+      }
+      // If specific list filter, return only reminders from that list
+      return allReminders.filter(r => r.list === filters.list);
+    });
 
     const result = await handleListReminders({ action: 'list' });
 
@@ -464,7 +485,7 @@ describe('handleListReminders', () => {
   });
 
   test('should return valid JSON with filtered reminders', async () => {
-    const mockReminders: Reminder[] = [
+    const allReminders: Reminder[] = [
       {
         title: 'Test Reminder 1',
         list: 'Default',
@@ -481,7 +502,22 @@ describe('handleListReminders', () => {
       reminderRepository.findReminders as jest.MockedFunction<
         (filters?: ReminderFilters) => Promise<Reminder[]>
       >
-    ).mockResolvedValue(mockReminders);
+    ).mockImplementation(async (filters) => {
+      let filtered = allReminders;
+      
+      // Filter by completion status
+      if (filters?.showCompleted !== undefined) {
+        filtered = filtered.filter(r => filters.showCompleted || !r.isCompleted);
+      }
+      
+      // If no list filter, return all for list discovery
+      if (!filters || !filters.list) {
+        return filtered;
+      }
+      
+      // Filter by list
+      return filtered.filter(r => r.list === filters.list);
+    });
 
     const result = await handleListReminders({
       action: 'list',
@@ -559,7 +595,7 @@ describe('handleListReminders', () => {
   });
 
   test('should return valid JSON with list filtering', async () => {
-    const mockReminders: Reminder[] = [
+    const allReminders: Reminder[] = [
       {
         title: 'Work Task',
         list: 'Work',
@@ -576,9 +612,16 @@ describe('handleListReminders', () => {
       reminderRepository.findReminders as jest.MockedFunction<
         (filters?: ReminderFilters) => Promise<Reminder[]>
       >
-    ).mockResolvedValue(mockReminders);
+    ).mockImplementation(async (filters) => {
+      // If no list filter, return all for list discovery
+      if (!filters || !filters.list) {
+        return allReminders;
+      }
+      // Filter by list
+      return allReminders.filter(r => r.list === filters.list);
+    });
 
-    const result = await handleListReminders({ action: 'list', list: 'Work' });
+    const result = await handleListReminders({ action: 'list', filterList: 'Work' });
 
     validateJsonResponse(result);
     const parsedJson = JSON.parse(result.content[0].text as string);
@@ -589,7 +632,7 @@ describe('handleListReminders', () => {
   });
 
   test('should filter reminders by search term', async () => {
-    const mockReminders: Reminder[] = [
+    const allReminders: Reminder[] = [
       {
         title: 'Meeting with client',
         list: 'Work',
@@ -613,7 +656,25 @@ describe('handleListReminders', () => {
       reminderRepository.findReminders as jest.MockedFunction<
         (filters?: ReminderFilters) => Promise<Reminder[]>
       >
-    ).mockResolvedValue(mockReminders);
+    ).mockImplementation(async (filters) => {
+      let filtered = allReminders;
+      
+      // Apply search filter first
+      if (filters?.search) {
+        const searchLower = filters.search.toLowerCase();
+        filtered = filtered.filter(r => 
+          r.title.toLowerCase().includes(searchLower) ||
+          r.notes?.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      // Apply list filter if specified
+      if (filters?.list) {
+        filtered = filtered.filter(r => r.list === filters.list);
+      }
+      
+      return filtered;
+    });
 
     const result = await handleListReminders({
       action: 'list',

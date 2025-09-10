@@ -1,13 +1,15 @@
 /** @type {import('jest').Config} */
 export default {
-  preset: 'ts-jest',
+  preset: 'ts-jest/presets/default-esm',
+  extensionsToTreatAsEsm: ['.ts'],
   testEnvironment: 'node',
   transform: {
     '^.+\\.ts$': [
       'ts-jest',
       {
+        useESM: true,
         tsconfig: {
-          module: 'CommonJS',
+          module: 'ES2022',
           target: 'ES2020',
           moduleResolution: 'Node',
           allowSyntheticDefaultImports: true,
@@ -31,4 +33,9 @@ export default {
     '!src/**/__mocks__/**',
   ],
   setupFilesAfterEnv: ['<rootDir>/src/test-setup.ts'],
+  globals: {
+    'import.meta': {
+      url: 'file:///mock-url',
+    },
+  },
 };

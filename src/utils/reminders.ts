@@ -78,6 +78,11 @@ export class RemindersManager {
    */
   private findProjectRootFromFileLocation(): string {
     try {
+      // Guard clause for test environment
+      if (process.env.NODE_ENV === 'test') {
+        return this.findProjectRootFromCwd();
+      }
+      
       // Get the directory of the current file
       const currentFileUrl = import.meta.url;
       const currentFilePath = new URL(currentFileUrl).pathname;

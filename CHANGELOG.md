@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2025-09-10
+
+### Added
+
+- Complete CRUD operations for reminder lists with unified interface
+- Enhanced URL support with structured format for consistent parsing
+- Comprehensive input validation and security enhancements
+- Advanced test coverage with integration tests for URL handling
+
+### Changed
+
+- **Enhanced**: URL handling with structured format supporting multiple URL sections
+- **Improved**: Error handling and code quality across all modules
+- **Optimized**: MCP tools with simplified pure CRUD operations architecture
+- **Enhanced**: Reminder functionality with better URL integration
+- **Updated**: Test suite with improved mocking and expectations
+
+### Fixed
+
+- Multiple URL sections parsing in structured format
+- Project root detection with enhanced fallback mechanisms
+- Critical test mocking issues and expectations alignment
+- Input validation edge cases and security vulnerabilities
+- Package.json validation for proper project root identification
+
 ## [0.7.3] - 2025-09-03
 
 ### Added
@@ -233,7 +258,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic Apple Reminders integration
 - Foundation for macOS native reminder management
 
-[unreleased]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.3...HEAD
+[unreleased]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.3...v0.8.0
 [0.7.3]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/FradSer/mcp-server-apple-reminders/compare/v0.7.0...v0.7.1

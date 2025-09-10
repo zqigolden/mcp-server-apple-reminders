@@ -260,7 +260,35 @@ export const handleReadReminders = async (
 ): Promise<CallToolResult> => {
   return handleJsonAsyncOperation(async () => {
     const validatedArgs = extractAndValidateArgs(args, ReadRemindersSchema);
-    const filters = buildReadReminderFilters(validatedArgs);
+    
+    // Handle intelligent default list selection when no filterList is provided
+    // Only apply default list selection if no other filters are specified
+    let effectiveFilterList = validatedArgs.filterList;
+    
+    if (!effectiveFilterList && !validatedArgs.search && !validatedArgs.dueWithin) {
+      // Get all reminders to determine available lists
+      const allReminders = await reminderRepository.findReminders({
+        showCompleted: validatedArgs.showCompleted
+      });
+      
+      // Extract unique lists from reminders
+      const availableLists = [...new Set(allReminders.map(r => r.list))];
+      
+      // Apply intelligent default list selection logic
+      if (availableLists.includes('Reminders')) {
+        effectiveFilterList = 'Reminders';
+      } else if (availableLists.includes('提醒事项')) {
+        effectiveFilterList = '提醒事项';
+      } else if (availableLists.length > 0) {
+        effectiveFilterList = availableLists[0]; // First available list in order found
+      }
+    }
+    
+    const filters = buildReadReminderFilters({
+      ...validatedArgs,
+      filterList: effectiveFilterList
+    });
+    
     const reminders = await reminderRepository.findReminders(filters);
     return createReminderReadResponse(reminders, filters);
   }, 'read reminders');
@@ -330,7 +358,7 @@ const createReminderReadResponse = (
     reminders: mappedReminders,
     total: mappedReminders.length,
     filter: {
-      filterList: filters.list,
+      list: filters.list,
       showCompleted: filters.showCompleted ?? false,
       search: filters.search ?? null,
       dueWithin: filters.dueWithin ?? null,
