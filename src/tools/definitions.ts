@@ -20,7 +20,7 @@ const REMINDER_ACTIONS: readonly ReminderAction[] = [
   'bulk_delete',
 ] as const;
 
-const LIST_ACTIONS: readonly ListAction[] = ['read', 'create'] as const;
+const LIST_ACTIONS: readonly ListAction[] = ['read', 'create', 'update', 'delete'] as const;
 
 const DUE_WITHIN_OPTIONS: readonly DueWithinOption[] = [
   'today',
@@ -292,7 +292,14 @@ export const TOOLS: Tool[] = [
         name: {
           type: 'string',
           description:
-            'Name for new reminder list (REQUIRED for create action)',
+            'Name for new reminder list (REQUIRED for create action) or current name for update/delete actions',
+          minLength: 1,
+          maxLength: 100,
+        },
+        newName: {
+          type: 'string',
+          description:
+            'New name for reminder list (REQUIRED for update action)',
           minLength: 1,
           maxLength: 100,
         },
@@ -311,6 +318,20 @@ export const TOOLS: Tool[] = [
         {
           properties: {
             action: { const: 'create' },
+          },
+          required: ['name'],
+        },
+        // Update action requirements for lists
+        {
+          properties: {
+            action: { const: 'update' },
+          },
+          required: ['name', 'newName'],
+        },
+        // Delete action requirements for lists
+        {
+          properties: {
+            action: { const: 'delete' },
           },
           required: ['name'],
         },

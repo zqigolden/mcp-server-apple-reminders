@@ -32,9 +32,11 @@ import {
   BulkUpdateRemindersSchema,
   CreateReminderListSchema,
   CreateReminderSchema,
+  DeleteReminderListSchema,
   DeleteReminderSchema,
   ReadReminderListsSchema,
   ReadRemindersSchema,
+  UpdateReminderListSchema,
   UpdateReminderSchema,
   validateInput,
   type BulkCreateRemindersInput,
@@ -321,6 +323,7 @@ const createReminderReadResponse = (
     isCompleted: reminder.isCompleted === true,
     dueDate: reminder.dueDate ?? null,
     notes: reminder.notes ?? null,
+    url: reminder.url ?? null,
   }));
 
   return {
@@ -350,6 +353,44 @@ export const handleCreateReminderList = async (
       return MESSAGES.SUCCESS.LIST_CREATED(validatedArgs.name);
     },
     'create reminder list',
+    ErrorResponseFactory.createSuccessResponse,
+  );
+};
+
+/**
+ * Updates a reminder list name
+ * @param args - Arguments for updating a reminder list
+ * @returns Result of the operation
+ */
+export const handleUpdateReminderList = async (
+  args: ListsToolArgs,
+): Promise<CallToolResult> => {
+  return handleAsyncOperation(
+    async () => {
+      const validatedArgs = extractAndValidateArgs(args, UpdateReminderListSchema);
+      await reminderRepository.updateReminderList(validatedArgs.name, validatedArgs.newName);
+      return MESSAGES.SUCCESS.LIST_UPDATED(validatedArgs.name, validatedArgs.newName);
+    },
+    'update reminder list',
+    ErrorResponseFactory.createSuccessResponse,
+  );
+};
+
+/**
+ * Deletes a reminder list
+ * @param args - Arguments for deleting a reminder list
+ * @returns Result of the operation
+ */
+export const handleDeleteReminderList = async (
+  args: ListsToolArgs,
+): Promise<CallToolResult> => {
+  return handleAsyncOperation(
+    async () => {
+      const validatedArgs = extractAndValidateArgs(args, DeleteReminderListSchema);
+      await reminderRepository.deleteReminderList(validatedArgs.name);
+      return MESSAGES.SUCCESS.LIST_DELETED(validatedArgs.name);
+    },
+    'delete reminder list',
     ErrorResponseFactory.createSuccessResponse,
   );
 };

@@ -108,6 +108,15 @@ export const CreateReminderListSchema = z.object({
   name: RequiredListNameSchema,
 });
 
+export const UpdateReminderListSchema = z.object({
+  name: RequiredListNameSchema,
+  newName: RequiredListNameSchema,
+});
+
+export const DeleteReminderListSchema = z.object({
+  name: RequiredListNameSchema,
+});
+
 /**
  * Bulk operation schemas using reusable components
  */
@@ -197,3 +206,5 @@ export type BulkUpdateRemindersInput = z.infer<typeof BulkUpdateRemindersSchema>
 export type BulkDeleteRemindersInput = z.infer<typeof BulkDeleteRemindersSchema>;
 export type ReadReminderListsInput = z.infer<typeof ReadReminderListsSchema>;
 export type CreateReminderListInput = z.infer<typeof CreateReminderListSchema>;
+export type UpdateReminderListInput = z.infer<typeof UpdateReminderListSchema>;
+export type DeleteReminderListInput = z.infer<typeof DeleteReminderListSchema>;

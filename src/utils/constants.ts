@@ -180,6 +180,12 @@ export const MESSAGES = {
     LIST_CREATED: (name: string) =>
       `Successfully created reminder list: ${name}`,
 
+    LIST_UPDATED: (oldName: string, newName: string) =>
+      `Successfully updated reminder list "${oldName}" to "${newName}"`,
+
+    LIST_DELETED: (name: string) =>
+      `Successfully deleted reminder list: ${name}`,
+
     ALL_PERMISSIONS_GRANTED: '✅ All permissions granted successfully',
 
     PERMISSIONS_VERIFIED: '✅ All permissions verified successfully',
