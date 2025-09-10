@@ -9,12 +9,14 @@ import { MESSAGES } from '../utils/constants.js';
 import { debugLog } from '../utils/logger.js';
 import { TOOLS } from './definitions.js';
 import {
+  handleBulkCreateReminders,
+  handleBulkDeleteReminders,
+  handleBulkUpdateReminders,
   handleCreateReminder,
   handleCreateReminderList,
   handleDeleteReminder,
-  handleListReminderLists,
-  handleListReminders,
-  handleMoveReminder,
+  handleReadReminderLists,
+  handleReadReminders,
   handleUpdateReminder,
 } from './handlers.js';
 
@@ -34,36 +36,21 @@ export async function handleToolCall(
     case 'reminders': {
       const action = args?.action;
       switch (action) {
+        case 'read':
         case 'list':
-          return handleListReminders(args);
+          return handleReadReminders(args);
         case 'create':
           return handleCreateReminder(args);
         case 'update':
           return handleUpdateReminder(args);
         case 'delete':
           return handleDeleteReminder(args);
-        case 'move':
-          return handleMoveReminder(args);
-        case 'organize': {
-          // Translate to batch operation for the update handler
-          const batchArgs: RemindersToolArgs = {
-            action: 'update',
-            title: 'batch',
-            batchOperation: {
-              enabled: true,
-              strategy: args.strategy,
-              sourceList: args.sourceList,
-              createLists: args.createLists,
-              filter: {
-                // For organize action, these fields may not be present
-                // completed: args.completed,
-                // search: args.search,
-                // dueWithin: args.dueWithin,
-              },
-            },
-          };
-          return handleUpdateReminder(batchArgs);
-        }
+        case 'bulk_create':
+          return handleBulkCreateReminders(args);
+        case 'bulk_update':
+          return handleBulkUpdateReminders(args);
+        case 'bulk_delete':
+          return handleBulkDeleteReminders(args);
         default:
           return {
             content: [
@@ -82,8 +69,8 @@ export async function handleToolCall(
     case 'lists': {
       const action = args?.action;
       switch (action) {
-        case 'list':
-          return handleListReminderLists({ action: 'list' });
+        case 'read':
+          return handleReadReminderLists({ action: 'read' });
         case 'create': {
           const listArgs = args as ListsToolArgs;
           if (!listArgs.name) {
