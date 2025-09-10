@@ -42,10 +42,14 @@ npm start         # Start MCP server
 | `reminders` | create | title, dueDate?, list?, note?, url? | Create new reminder |
 | `reminders` | update | title, newTitle?, dueDate?, list?, note?, completed?, url? | Update existing reminder |
 | `reminders` | delete | title, list? | Delete reminder by title |
-| `reminders` | move | title, fromList?, toList | Move between lists |
+| `reminders` | bulk_create | reminders[] | Create multiple reminders at once |
+| `reminders` | bulk_update | updates[] | Update multiple reminders at once |
+| `reminders` | bulk_delete | titles[], list? | Delete multiple reminders at once |
 | `reminders` | organize | strategy, sourceList?, createLists? | Batch organize by priority/due_date/category/completion_status |
 | `lists` | list | - | Get all reminder lists |
 | `lists` | create | name | Create new reminder list |
+| `lists` | update | name, newName | Update reminder list name |
+| `lists` | delete | name | Delete reminder list |
 
 **Advanced Features:**
 - Unified action-based tool interface for simplified MCP integration
@@ -150,7 +154,9 @@ NODE_ENV=test npm test  # Test environment
 
 ### MCP Protocol Implementation
 - 2 unified tools (`reminders` and `lists`) with action-based operations
-- Batch operation support for organizing multiple reminders
+- Complete CRUD operations: Create, Read, Update, Delete for both reminders and lists
+- Bulk operation support for creating, updating, and deleting multiple reminders
+- Batch organization strategies for automatic categorization
 - Consistent error response format across all tools
 - Tool parameter validation using dual schema approach (Zod + ArkType)
 - Action-based design reduces tool complexity and improves MCP client compatibility
