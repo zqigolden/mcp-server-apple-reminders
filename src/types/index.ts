@@ -43,8 +43,8 @@ export interface ReminderResult {
 /**
  * Shared type constants for better type safety and consistency
  */
-export type ReminderAction = 'list' | 'create' | 'update' | 'delete' | 'move' | 'organize';
-export type ListAction = 'list' | 'create';
+export type ReminderAction = 'read' | 'list' | 'create' | 'update' | 'delete' | 'bulk_create' | 'bulk_update' | 'bulk_delete';
+export type ListAction = 'read' | 'create';
 export type DueWithinOption = 'today' | 'tomorrow' | 'this-week' | 'overdue' | 'no-date';
 export type OrganizeStrategy = 'priority' | 'due_date' | 'category' | 'completion_status';
 
@@ -60,23 +60,45 @@ interface BaseToolArgs {
  */
 export interface RemindersToolArgs extends BaseToolArgs {
   action: ReminderAction;
-  // Common optional fields that may be present across different actions
-  list?: string;
+  // Filtering parameters (for list action)
+  filterList?: string;
   showCompleted?: boolean;
   search?: string;
   dueWithin?: DueWithinOption;
+  // Single item parameters
   title?: string;
   newTitle?: string;
   dueDate?: string;
   note?: string;
   url?: string;
   completed?: boolean;
-  fromList?: string;
-  toList?: string;
-  strategy?: OrganizeStrategy;
-  sourceList?: string;
+  // Target list for create/update operations
+  targetList?: string;
+  // Bulk operation parameters
+  items?: Array<{
+    title: string;
+    dueDate?: string;
+    note?: string;
+    url?: string;
+    targetList?: string;
+  }>;
+  criteria?: {
+    search?: string;
+    dueWithin?: DueWithinOption;
+    completed?: boolean;
+    sourceList?: string;
+  };
+  updates?: {
+    newTitle?: string;
+    dueDate?: string;
+    note?: string;
+    url?: string;
+    completed?: boolean;
+    targetList?: string;
+  };
+  // Organize parameters for bulk_update
+  organizeBy?: OrganizeStrategy;
   createLists?: boolean;
-  batchOperation?: BatchOperation;
 }
 
 export interface ListsToolArgs extends BaseToolArgs {
@@ -87,30 +109,17 @@ export interface ListsToolArgs extends BaseToolArgs {
 /**
  * Specific action argument types for better validation
  */
-export type ListReminderArgs = { action: 'list'; list?: string; showCompleted?: boolean; search?: string; dueWithin?: DueWithinOption };
-export type CreateReminderArgs = { action: 'create'; title: string; dueDate?: string; note?: string; url?: string; list?: string };
-export type UpdateReminderArgs = { action: 'update'; title?: string; newTitle?: string; dueDate?: string; note?: string; url?: string; completed?: boolean; list?: string; batchOperation?: BatchOperation };
-export type DeleteReminderArgs = { action: 'delete'; title: string; list?: string };
-export type MoveReminderArgs = { action: 'move'; title: string; fromList: string; toList: string };
-export type OrganizeReminderArgs = { action: 'organize'; strategy: OrganizeStrategy; sourceList?: string; createLists?: boolean };
+export type ReadReminderArgs = { action: 'read'; filterList?: string; showCompleted?: boolean; search?: string; dueWithin?: DueWithinOption };
+export type CreateReminderArgs = { action: 'create'; title: string; dueDate?: string; note?: string; url?: string; targetList?: string };
+export type UpdateReminderArgs = { action: 'update'; title: string; newTitle?: string; dueDate?: string; note?: string; url?: string; completed?: boolean; targetList?: string };
+export type DeleteReminderArgs = { action: 'delete'; title: string; filterList?: string };
+export type BulkCreateReminderArgs = { action: 'bulk_create'; items: Array<{ title: string; dueDate?: string; note?: string; url?: string; targetList?: string }> };
+export type BulkUpdateReminderArgs = { action: 'bulk_update'; criteria: { search?: string; dueWithin?: DueWithinOption; completed?: boolean; sourceList?: string }; updates: { newTitle?: string; dueDate?: string; note?: string; url?: string; completed?: boolean; targetList?: string }; organizeBy?: OrganizeStrategy; createLists?: boolean };
+export type BulkDeleteReminderArgs = { action: 'bulk_delete'; criteria: { search?: string; dueWithin?: DueWithinOption; completed?: boolean; sourceList?: string } };
 
 export type CreateListArgs = { action: 'create'; name: string };
-export type ListListsArgs = { action: 'list' };
+export type ReadListsArgs = { action: 'read' };
 
-/**
- * Batch operation interface for complex update operations
- */
-export interface BatchOperation {
-  enabled: boolean;
-  strategy?: OrganizeStrategy;
-  sourceList?: string;
-  createLists?: boolean;
-  filter?: {
-    completed?: boolean;
-    search?: string;
-    dueWithin?: DueWithinOption;
-  };
-}
 
 /**
  * Tool handler function signatures

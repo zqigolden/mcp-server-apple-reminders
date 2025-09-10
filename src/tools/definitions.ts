@@ -11,15 +11,16 @@ import type { ReminderAction, ListAction, DueWithinOption, OrganizeStrategy } fr
  * Const assertions for tool schema validation
  */
 const REMINDER_ACTIONS: readonly ReminderAction[] = [
-  'list',
+  'read',
   'create', 
   'update',
   'delete',
-  'move',
-  'organize',
+  'bulk_create',
+  'bulk_update',
+  'bulk_delete',
 ] as const;
 
-const LIST_ACTIONS: readonly ListAction[] = ['list', 'create'] as const;
+const LIST_ACTIONS: readonly ListAction[] = ['read', 'create'] as const;
 
 const DUE_WITHIN_OPTIONS: readonly DueWithinOption[] = [
   'today',
@@ -54,10 +55,10 @@ export const TOOLS: Tool[] = [
         },
 
         // List operation parameters
-        list: {
+        filterList: {
           type: 'string',
           description:
-            "Name of the reminder list (REQUIRED for 'list' action). Examples: 'Reminders', 'Work', 'Personal', 'Shopping'",
+            "Name of the reminder list to filter by. Examples: 'Reminders', 'Work', 'Personal', 'Shopping'",
           minLength: 1,
           maxLength: 100,
         },
@@ -78,7 +79,7 @@ export const TOOLS: Tool[] = [
           description: 'Filter reminders by due date range',
         },
 
-        // Create/Update operation parameters
+        // Single item operation parameters
         title: {
           type: 'string',
           description:
@@ -113,123 +114,167 @@ export const TOOLS: Tool[] = [
           type: 'boolean',
           description: 'Mark reminder as completed (update action only)',
         },
-
-        // Move operation parameters
-        fromList: {
+        targetList: {
           type: 'string',
-          description: 'Source list name (REQUIRED for move action)',
-          minLength: 1,
-          maxLength: 100,
-        },
-        toList: {
-          type: 'string',
-          description: 'Destination list name (REQUIRED for move action)',
+          description: 'Target list for create/update operations',
           minLength: 1,
           maxLength: 100,
         },
 
-        // Organize operation parameters
-        strategy: {
+        // Bulk operation parameters
+        items: {
+          type: 'array',
+          description: 'Array of items for bulk operations',
+          items: {
+            type: 'object',
+            properties: {
+              title: {
+                type: 'string',
+                minLength: 1,
+                maxLength: 200,
+              },
+              dueDate: {
+                type: 'string',
+                pattern: '^\\d{4}-\\d{2}-\\d{2}(\\s\\d{2}:\\d{2}:\\d{2})?$',
+              },
+              note: {
+                type: 'string',
+                maxLength: 2000,
+              },
+              url: {
+                type: 'string',
+                format: 'uri',
+                maxLength: 500,
+              },
+              targetList: {
+                type: 'string',
+                minLength: 1,
+                maxLength: 100,
+              },
+            },
+            required: ['title'],
+          },
+        },
+        criteria: {
+          type: 'object',
+          description: 'Criteria for bulk operations',
+          properties: {
+            search: {
+              type: 'string',
+              maxLength: 100,
+            },
+            dueWithin: {
+              type: 'string',
+              enum: DUE_WITHIN_OPTIONS,
+            },
+            completed: {
+              type: 'boolean',
+            },
+            sourceList: {
+              type: 'string',
+              maxLength: 100,
+            },
+          },
+        },
+        updates: {
+          type: 'object',
+          description: 'Updates to apply in bulk operations',
+          properties: {
+            newTitle: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 200,
+            },
+            dueDate: {
+              type: 'string',
+              pattern: '^\\d{4}-\\d{2}-\\d{2}(\\s\\d{2}:\\d{2}:\\d{2})?$',
+            },
+            note: {
+              type: 'string',
+              maxLength: 2000,
+            },
+            url: {
+              type: 'string',
+              format: 'uri',
+              maxLength: 500,
+            },
+            completed: {
+              type: 'boolean',
+            },
+            targetList: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 100,
+            },
+          },
+        },
+        organizeBy: {
           type: 'string',
           enum: ORGANIZE_STRATEGIES,
-          description: 'Strategy for organizing reminders into lists',
-        },
-        sourceList: {
-          type: 'string',
-          description: 'Source list to organize from (organize action only)',
-          maxLength: 100,
+          description: 'Strategy for organizing reminders in bulk_update operations',
         },
         createLists: {
           type: 'boolean',
-          description: 'Create new lists automatically during organization',
+          description: 'Create new lists automatically during bulk organization',
           default: true,
         },
       },
       required: ['action'],
       additionalProperties: false,
-      oneOf: [
-        // List action - no additional requirements
-        {
-          properties: {
-            action: { const: 'list' },
-          },
-          additionalProperties: true,
+      dependentSchemas: {
+        action: {
+          oneOf: [
+            // Read action - no additional requirements
+            {
+              properties: {
+                action: { const: 'read' },
+              },
+            },
+            // Create action requirements
+            {
+              properties: {
+                action: { const: 'create' },
+              },
+              required: ['title'],
+            },
+            // Update action requirements
+            {
+              properties: {
+                action: { const: 'update' },
+              },
+              required: ['title'],
+            },
+            // Delete action requirements
+            {
+              properties: {
+                action: { const: 'delete' },
+              },
+              required: ['title'],
+            },
+            // Bulk create action requirements
+            {
+              properties: {
+                action: { const: 'bulk_create' },
+              },
+              required: ['items'],
+            },
+            // Bulk update action requirements
+            {
+              properties: {
+                action: { const: 'bulk_update' },
+              },
+              required: ['criteria', 'updates'],
+            },
+            // Bulk delete action requirements
+            {
+              properties: {
+                action: { const: 'bulk_delete' },
+              },
+              required: ['criteria'],
+            },
+          ],
         },
-        // Create action requirements
-        {
-          properties: {
-            action: { const: 'create' },
-            title: {
-              type: 'string',
-              minLength: 1,
-              maxLength: 200,
-            },
-          },
-          required: ['action', 'title'],
-          additionalProperties: true,
-        },
-        // Update action requirements
-        {
-          properties: {
-            action: { const: 'update' },
-            title: {
-              type: 'string',
-              minLength: 1,
-              maxLength: 200,
-            },
-          },
-          required: ['action', 'title'],
-          additionalProperties: true,
-        },
-        // Delete action requirements
-        {
-          properties: {
-            action: { const: 'delete' },
-            title: {
-              type: 'string',
-              minLength: 1,
-              maxLength: 200,
-            },
-          },
-          required: ['action', 'title'],
-          additionalProperties: true,
-        },
-        // Move action requirements
-        {
-          properties: {
-            action: { const: 'move' },
-            title: {
-              type: 'string',
-              minLength: 1,
-              maxLength: 200,
-            },
-            fromList: {
-              type: 'string',
-              minLength: 1,
-              maxLength: 100,
-            },
-            toList: {
-              type: 'string',
-              minLength: 1,
-              maxLength: 100,
-            },
-          },
-          required: ['action', 'title', 'fromList', 'toList'],
-          additionalProperties: true,
-        },
-        // Organize action requirements
-        {
-          properties: {
-            action: { const: 'organize' },
-            strategy: {
-              type: 'string',
-              enum: ORGANIZE_STRATEGIES,
-            },
-          },
-          required: ['action', 'strategy'],
-          additionalProperties: true,
-        },
-      ],
+      },
     },
   },
   {
@@ -255,10 +300,10 @@ export const TOOLS: Tool[] = [
       required: ['action'],
       additionalProperties: false,
       oneOf: [
-        // List action - no additional requirements
+        // Read action - no additional requirements
         {
           properties: {
-            action: { const: 'list' },
+            action: { const: 'read' },
           },
           additionalProperties: true,
         },
@@ -266,14 +311,8 @@ export const TOOLS: Tool[] = [
         {
           properties: {
             action: { const: 'create' },
-            name: {
-              type: 'string',
-              minLength: 1,
-              maxLength: 100,
-            },
           },
-          required: ['action', 'name'],
-          additionalProperties: true,
+          required: ['name'],
         },
       ],
     },
