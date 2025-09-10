@@ -1,4 +1,4 @@
-# Apple Reminders MCP Server ![Version 0.7.2](https://img.shields.io/badge/version-0.7.2-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green)
+# Apple Reminders MCP Server ![Version 0.8.0](https://img.shields.io/badge/version-0.8.0-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer)
 
@@ -132,6 +132,7 @@ code %APPDATA%\Claude\claude_desktop_config.json
 创建一个明天下午 5 点的"买杂货"提醒。
 添加一个"打电话给妈妈"的提醒，备注"询问周末计划"。
 在"工作"列表中创建一个下周五到期的"提交报告"提醒。
+创建一个带URL的提醒"查看这个网站：https://google.com"。
 ```
 
 ### 更新提醒事项
@@ -171,7 +172,7 @@ code %APPDATA%\Claude\claude_desktop_config.json
 
 一个支持基于操作的 Apple Reminders 管理的综合工具。通过单个统一接口支持所有提醒事项操作。
 
-**操作**：`list`, `create`, `update`, `delete`, `move`, `organize`
+**操作**：`list`, `create`, `update`, `delete`, `bulk_create`, `bulk_update`, `bulk_delete`, `organize`
 
 #### 按操作的参数
 
@@ -201,10 +202,15 @@ code %APPDATA%\Claude\claude_desktop_config.json
 - `title` *(必需)*：要删除的提醒事项标题
 - `list` *(可选)*：包含提醒事项的列表名称
 
-**移动操作**（`action: "move"`）：
-- `title` *(必需)*：要移动的提醒事项标题
-- `fromList` *(可选)*：源列表名称
-- `toList` *(必需)*：目标列表名称
+**批量创建操作**（`action: "bulk_create"`）：
+- `items` *(必需)*：要创建的提醒事项对象数组
+
+**批量更新操作**（`action: "bulk_update"`）：
+- `criteria` *(必需)*：查找提醒事项的搜索条件
+- `updates` *(必需)*：要更新的属性
+
+**批量删除操作**（`action: "bulk_delete"`）：
+- `criteria` *(必需)*：查找要删除的提醒事项的搜索条件
 
 **组织操作**（`action: "organize"`）：
 - `strategy` *(必需)*：组织策略（"priority"、"due_date"、"category"、"completion_status"）
@@ -248,7 +254,7 @@ code %APPDATA%\Claude\claude_desktop_config.json
 
 管理提醒事项列表 - 查看现有列表或创建新列表用于组织提醒事项。
 
-**操作**：`list`, `create`
+**操作**：`list`, `create`, `update`, `delete`
 
 #### 按操作的参数
 
@@ -257,6 +263,13 @@ code %APPDATA%\Claude\claude_desktop_config.json
 
 **创建操作**（`action: "create"`）：
 - `name` *(必需)*：新提醒事项列表的名称
+
+**更新操作**（`action: "update"`）：
+- `name` *(必需)*：要更新的列表的当前名称
+- `newName` *(必需)*：提醒事项列表的新名称
+
+**删除操作**（`action: "delete"`）：
+- `name` *(必需)*：要删除的列表名称
 
 #### 使用示例
 

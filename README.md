@@ -1,4 +1,4 @@
-# Apple Reminders MCP Server ![Version 0.7.2](https://img.shields.io/badge/version-0.7.2-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green)
+# Apple Reminders MCP Server ![Version 0.8.0](https://img.shields.io/badge/version-0.8.0-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer)
 
@@ -132,6 +132,7 @@ Once configured, you can ask Claude to interact with your Apple Reminders. Here 
 Create a reminder to "Buy groceries" for tomorrow at 5 PM.
 Add a reminder to "Call mom" with a note "Ask about weekend plans".
 Create a reminder in my "Work" list to "Submit report" due next Friday.
+Create a reminder with URL "Check this website: https://google.com".
 ```
 
 
@@ -172,7 +173,7 @@ This server provides two unified MCP tools for comprehensive Apple Reminders man
 
 A comprehensive tool for managing Apple Reminders with action-based operations. Supports all reminder operations through a single unified interface.
 
-**Actions**: `list`, `create`, `update`, `delete`, `move`, `organize`
+**Actions**: `list`, `create`, `update`, `delete`, `bulk_create`, `bulk_update`, `bulk_delete`, `organize`
 
 #### Parameters by Action
 
@@ -202,10 +203,15 @@ A comprehensive tool for managing Apple Reminders with action-based operations. 
 - `title` *(required)*: Title of the reminder to delete
 - `list` *(optional)*: Name of the list containing the reminder
 
-**Move Action** (`action: "move"`):
-- `title` *(required)*: Title of the reminder to move
-- `fromList` *(optional)*: Source list name
-- `toList` *(required)*: Destination list name
+**Bulk Create Action** (`action: "bulk_create"`):
+- `items` *(required)*: Array of reminder objects to create
+
+**Bulk Update Action** (`action: "bulk_update"`):
+- `criteria` *(required)*: Search criteria to find reminders
+- `updates` *(required)*: Properties to update
+
+**Bulk Delete Action** (`action: "bulk_delete"`):
+- `criteria` *(required)*: Search criteria to find reminders to delete
 
 **Organize Action** (`action: "organize"`):
 - `strategy` *(required)*: Organization strategy ("priority", "due_date", "category", "completion_status")
@@ -249,7 +255,7 @@ A comprehensive tool for managing Apple Reminders with action-based operations. 
 
 Manage reminder lists - view existing lists or create new ones for organizing reminders.
 
-**Actions**: `list`, `create`
+**Actions**: `list`, `create`, `update`, `delete`
 
 #### Parameters by Action
 
@@ -258,6 +264,13 @@ Manage reminder lists - view existing lists or create new ones for organizing re
 
 **Create Action** (`action: "create"`):
 - `name` *(required)*: Name for new reminder list
+
+**Update Action** (`action: "update"`):
+- `name` *(required)*: Current name of the list to update
+- `newName` *(required)*: New name for the reminder list
+
+**Delete Action** (`action: "delete"`):
+- `name` *(required)*: Name of the list to delete
 
 #### Example Usage
 
