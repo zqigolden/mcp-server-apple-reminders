@@ -7,7 +7,7 @@ import {
   createRemindersScript,
   quoteAppleScriptString,
 } from './applescript.js';
-import { generateDateProperty, parseDateWithType } from './date.js';
+import { generateDateProperty } from './date.js';
 import { combineNoteWithUrl, formatNoteWithUrls, extractNoteContent, extractUrlsFromNotes } from "./urlHelpers.js";
 
 interface ReminderProperties {
@@ -44,15 +44,17 @@ export class ReminderCreationBuilder {
       ? `set targetList to list ${quoteAppleScriptString(this.properties.list)}`
       : 'set targetList to default list';
 
+    const preludeLines: string[] = [];
     const props = [`name:${quoteAppleScriptString(this.properties.title)}`];
 
     if (this.properties.dueDate) {
-      props.push(
-        generateDateProperty(
-          this.properties.dueDate,
-          quoteAppleScriptString,
-        ).slice(1),
+      const dateValue = generateDateProperty(
+        this.properties.dueDate,
+        'dueDateValue',
       );
+      preludeLines.push(...dateValue.prelude);
+      const dateField = dateValue.isDateOnly ? 'allday due date' : 'due date';
+      props.push(`${dateField}:${dateValue.variableName}`);
     }
 
     const combinedNote = this.combineNoteAndUrl();
@@ -64,9 +66,14 @@ export class ReminderCreationBuilder {
     const creationCommand =
       'set newReminder to make new reminder at end of targetList with properties reminderProps';
 
-    return createRemindersScript(
-      [listSelector, reminderProps, creationCommand].join('\n'),
-    );
+    const scriptParts = [
+      listSelector,
+      ...preludeLines,
+      reminderProps,
+      creationCommand,
+    ];
+
+    return createRemindersScript(scriptParts.join('\n'));
   }
 
   private combineNoteAndUrl(): string {
@@ -131,18 +138,24 @@ export class ReminderUpdateScriptBuilder {
    * Builds the complete update script
    */
   build(): string {
+    const propertyUpdates = this.buildPropertyUpdates();
     const scriptParts = [
       this.targetBuilder.buildTargetSelector(),
       this.targetBuilder.buildValidationCheck(),
-      this.buildPropertyUpdates(),
+      ...propertyUpdates.prelude,
+      propertyUpdates.lines.join('\n'),
       'end if',
     ];
 
     return createRemindersScript(scriptParts.join('\n'));
   }
 
-  private buildPropertyUpdates(): string {
+  private buildPropertyUpdates(): {
+    prelude: string[];
+    lines: string[];
+  } {
     const updates: string[] = [];
+    const prelude: string[] = [];
 
     if (this.properties.newTitle) {
       updates.push(
@@ -151,7 +164,15 @@ export class ReminderUpdateScriptBuilder {
     }
 
     if (this.properties.dueDate) {
-      updates.push(this.buildDateUpdate());
+      const dateValue = generateDateProperty(
+        this.properties.dueDate,
+        'updatedDueDateValue',
+      );
+      prelude.push(...dateValue.prelude);
+      const dateType = dateValue.isDateOnly ? 'allday due date' : 'due date';
+      updates.push(
+        `  set ${dateType} of targetReminder to ${dateValue.variableName}`,
+      );
     }
 
     if (this.shouldUpdateNotes()) {
@@ -164,17 +185,7 @@ export class ReminderUpdateScriptBuilder {
       );
     }
 
-    return updates.join('\n');
-  }
-
-  private buildDateUpdate(): string {
-    if (!this.properties.dueDate) return '';
-
-    const { formatted, isDateOnly } = parseDateWithType(
-      this.properties.dueDate,
-    );
-    const dateType = isDateOnly ? 'allday due date' : 'due date';
-    return `  set ${dateType} of targetReminder to date ${quoteAppleScriptString(formatted)}`;
+    return { prelude, lines: updates };
   }
 
   private shouldUpdateNotes(): boolean {

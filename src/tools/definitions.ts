@@ -44,79 +44,75 @@ export const TOOLS: Tool[] = [
   {
     name: 'reminders',
     description:
-      'Comprehensive reminder management tool with action-based operations. Supports listing, creating, updating, deleting, moving, and organizing reminders across different lists.',
+      'Structured reminder manager. Always provide an "action" (read | create | update | delete | bulk_create | bulk_update | bulk_delete) and only include fields documented for that action. Date strings must use YYYY-MM-DD or YYYY-MM-DD HH:mm:ss. Extra properties are rejected.',
     inputSchema: {
       type: 'object',
       properties: {
         action: {
           type: 'string',
           enum: REMINDER_ACTIONS,
-          description: 'Operation to perform on reminders',
+          description: 'Required operation keyword. Must equal one of the enumerated reminder actions.',
         },
 
         // List operation parameters
         filterList: {
           type: 'string',
-          description:
-            "Name of the reminder list to filter by. Examples: 'Reminders', 'Work', 'Personal', 'Shopping'",
+          description: 'Filter read results to reminders whose list name matches this value (case-sensitive).',
           minLength: 1,
           maxLength: 100,
         },
         showCompleted: {
           type: 'boolean',
-          description:
-            'Include completed reminders in results (list action only)',
+          description: 'Include reminders already marked completed when action=read.',
           default: false,
         },
         search: {
           type: 'string',
-          description: 'Search term to filter reminders by title or content',
+          description: 'Substring matcher applied to reminder title and note fields for action=read.',
           maxLength: 100,
         },
         dueWithin: {
           type: 'string',
           enum: DUE_WITHIN_OPTIONS,
-          description: 'Filter reminders by due date range',
+          description: 'Restrict read results to the specified due-date bucket (today|tomorrow|this-week|overdue|no-date).',
         },
 
         // Single item operation parameters
         title: {
           type: 'string',
-          description:
-            'Reminder title (REQUIRED for create, update, delete, move actions)',
+          description: 'Reminder title. Required for create/update/delete and used to locate the target reminder.',
           minLength: 1,
           maxLength: 200,
         },
         newTitle: {
           type: 'string',
-          description: 'New title for reminder (update action only)',
+          description: 'Replacement title when action=update.',
           minLength: 1,
           maxLength: 200,
         },
         dueDate: {
           type: 'string',
-          description:
-            "Due date in format 'YYYY-MM-DD' or 'YYYY-MM-DD HH:mm:ss'",
+          description: 'Due date or timestamp string. Accepts YYYY-MM-DD or YYYY-MM-DD HH:mm:ss.',
           pattern: '^\\d{4}-\\d{2}-\\d{2}(\\s\\d{2}:\\d{2}:\\d{2})?$',
         },
         note: {
           type: 'string',
-          description: 'Additional notes or description for the reminder',
+          description: 'Reminder note/body text.',
           maxLength: 2000,
         },
         url: {
           type: 'string',
-          description: 'URL to associate with the reminder',
+          description: 'Absolute URL to store with the reminder.',
           format: 'uri',
           maxLength: 500,
         },
         completed: {
           type: 'boolean',
-          description: 'Mark reminder as completed (update action only)',
+          description: 'Set completion flag when action=update.',
         },
         targetList: {
           type: 'string',
-          description: 'Target list for create/update operations',
+          description: 'Name of the destination list for create/update. Helps disambiguate duplicates.',
           minLength: 1,
           maxLength: 100,
         },
@@ -124,7 +120,7 @@ export const TOOLS: Tool[] = [
         // Bulk operation parameters
         items: {
           type: 'array',
-          description: 'Array of items for bulk operations',
+          description: 'Payload for bulk_create: array of reminder definitions.',
           items: {
             type: 'object',
             properties: {
@@ -157,7 +153,7 @@ export const TOOLS: Tool[] = [
         },
         criteria: {
           type: 'object',
-          description: 'Criteria for bulk operations',
+          description: 'Selection filters applied for bulk_update or bulk_delete.',
           properties: {
             search: {
               type: 'string',
@@ -178,7 +174,7 @@ export const TOOLS: Tool[] = [
         },
         updates: {
           type: 'object',
-          description: 'Updates to apply in bulk operations',
+          description: 'Fields applied to each reminder matched by criteria during bulk_update.',
           properties: {
             newTitle: {
               type: 'string',
@@ -211,11 +207,11 @@ export const TOOLS: Tool[] = [
         organizeBy: {
           type: 'string',
           enum: ORGANIZE_STRATEGIES,
-          description: 'Strategy for organizing reminders in bulk_update operations',
+          description: 'Optional grouping strategy for bulk_update reorganizations (priority|due_date|category|completion_status).',
         },
         createLists: {
           type: 'boolean',
-          description: 'Create new lists automatically during bulk organization',
+          description: 'Allow bulk operations to create missing lists referenced in items/updates.targetList.',
           default: true,
         },
       },
@@ -280,26 +276,24 @@ export const TOOLS: Tool[] = [
   {
     name: 'lists',
     description:
-      'Manage reminder lists - view existing lists or create new ones for organizing reminders',
+      'Reminder list maintenance tool. Provide an "action" of read | create | update | delete and only the fields required for that action. Name fields must be 1-100 characters; unexpected properties cause validation errors.',
     inputSchema: {
       type: 'object',
       properties: {
         action: {
           type: 'string',
           enum: LIST_ACTIONS,
-          description: 'Operation to perform on reminder lists',
+          description: 'Required list operation keyword (read|create|update|delete).',
         },
         name: {
           type: 'string',
-          description:
-            'Name for new reminder list (REQUIRED for create action) or current name for update/delete actions',
+          description: 'List name used as target. Required for create, update, and delete.',
           minLength: 1,
           maxLength: 100,
         },
         newName: {
           type: 'string',
-          description:
-            'New name for reminder list (REQUIRED for update action)',
+          description: 'Replacement list name when action=update.',
           minLength: 1,
           maxLength: 100,
         },

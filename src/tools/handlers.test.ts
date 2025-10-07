@@ -1,7 +1,7 @@
 // 使用全局 Jest 函数，避免额外依赖
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { Reminder, ReminderList } from '../types/index.js';
-import type { ParsedDate } from '../utils/date.js';
+import type { AppleScriptDateValue, ParsedDate } from '../utils/date.js';
 import type { ReminderFilters } from '../utils/dateFiltering.js';
 import type {
   CreateReminderData,
@@ -41,7 +41,7 @@ let _mockFindReminders: jest.MockedFunction<
 let _mockFindAllLists: jest.MockedFunction<() => Promise<unknown[]>>;
 let _mockEnsurePermissions: jest.MockedFunction<() => Promise<void>>;
 let mockGenerateDateProperty: jest.MockedFunction<
-  (date: unknown, property: string) => string
+  (date: string, variableName: string) => AppleScriptDateValue
 >;
 let mockParseDateWithType: jest.MockedFunction<
   (dateStr: string, type: string) => unknown
@@ -62,7 +62,11 @@ const initializeMocks = () => {
   _mockFindReminders = jest.fn();
   _mockFindAllLists = jest.fn();
   _mockEnsurePermissions = jest.fn();
-  mockGenerateDateProperty = jest.fn();
+  mockGenerateDateProperty = jest.fn((_date: string, variableName: string) => ({
+    prelude: [`set ${variableName} to current date`],
+    variableName,
+    isDateOnly: false,
+  }));
   mockParseDateWithType = jest.fn();
   mockParseDate = jest.fn();
 };
@@ -226,11 +230,13 @@ beforeEach(() => {
   (
     parseDate as jest.MockedFunction<(dateStr: string) => string>
   ).mockImplementation((dateStr: string) => `${dateStr} parsed`);
-  (
-    generateDateProperty as jest.MockedFunction<
-      (dateStr: string, quoteFn: (str: string) => string) => string
-    >
-  ).mockReturnValue(':due date(date "string")');
+  mockGenerateDateProperty.mockImplementation(
+    (_date: string, variableName: string) => ({
+      prelude: [`set ${variableName} to current date`],
+      variableName,
+      isDateOnly: false,
+    }),
+  );
   (
     parseDateWithType as jest.MockedFunction<(dateStr: string) => ParsedDate>
   ).mockReturnValue({ formatted: 'parsed date', isDateOnly: false });
@@ -266,25 +272,6 @@ jest.mock('../utils/constants.js', () => ({
 // Mock date filtering utilities
 jest.mock('../utils/dateFiltering.js', () => ({
   applyReminderFilters: jest.fn((reminders, _filters) => reminders),
-}));
-
-// Mock the date parser
-jest.mock('../utils/date.js', () => ({
-  parseDate: jest.fn((dateStr: string) => `${dateStr} parsed`),
-  isDateOnlyFormat: jest.fn((dateStr: string) =>
-    /^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim()),
-  ),
-  parseDateWithType: jest.fn((dateStr: string) => ({
-    formatted: `${dateStr} parsed`,
-    isDateOnly: /^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim()),
-  })),
-  generateDateProperty: jest.fn(
-    (dateStr: string, quoteFn: (str: string) => string) => {
-      const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim());
-      const dateType = isDateOnly ? 'allday due date' : 'due date';
-      return `, ${dateType}:date ${quoteFn(`${dateStr} parsed`)}`;
-    },
-  ),
 }));
 
 // Mock the logger to suppress debug output in tests
@@ -782,7 +769,7 @@ describe('handleCreateReminder', () => {
     );
     expect(generateDateProperty).toHaveBeenCalledWith(
       '2024-03-15 10:00:00',
-      expect.any(Function),
+      'dueDateValue',
     );
     expect(executeAppleScript).toHaveBeenCalled();
   });
@@ -870,6 +857,18 @@ describe('handleCreateReminder', () => {
   });
 
   test('should create reminder with date-only format using allday due date', async () => {
+    mockGenerateDateProperty.mockReturnValueOnce({
+      prelude: [
+        'set dueDateValue to current date',
+        'set year of dueDateValue to 2024',
+        'set month of dueDateValue to December',
+        'set day of dueDateValue to 25',
+        'set time of dueDateValue to 0',
+      ],
+      variableName: 'dueDateValue',
+      isDateOnly: true,
+    });
+
     const args = {
       action: 'create' as const,
       title: 'Important Meeting',
@@ -884,16 +883,29 @@ describe('handleCreateReminder', () => {
     );
     expect(generateDateProperty).toHaveBeenCalledWith(
       '2024-12-25',
-      expect.any(Function),
+      'dueDateValue',
     );
 
     // Verify the generated script contains allday due date for date-only format
     const generatedScript = mockCreateRemindersScript.mock.calls[0][0];
-    expect(generatedScript).toContain('allday due date');
-    expect(generatedScript).not.toContain(', due date');
+    expect(generatedScript).toContain('set dueDateValue to current date');
+    expect(generatedScript).toContain('allday due date:dueDateValue');
+    expect(generatedScript).not.toContain('due date:date');
   });
 
   test('should create reminder with datetime format using regular due date', async () => {
+    mockGenerateDateProperty.mockReturnValueOnce({
+      prelude: [
+        'set dueDateValue to current date',
+        'set year of dueDateValue to 2024',
+        'set month of dueDateValue to December',
+        'set day of dueDateValue to 25',
+        'set time of dueDateValue to 52200',
+      ],
+      variableName: 'dueDateValue',
+      isDateOnly: false,
+    });
+
     const args = {
       action: 'create' as const,
       title: 'Appointment',
@@ -908,13 +920,13 @@ describe('handleCreateReminder', () => {
     );
     expect(generateDateProperty).toHaveBeenCalledWith(
       '2024-12-25 14:30:00',
-      expect.any(Function),
+      'dueDateValue',
     );
 
     // Verify the generated script contains regular due date for datetime format
     const generatedScript = mockCreateRemindersScript.mock.calls[0][0];
-    expect(generatedScript).toContain(', due date');
-    expect(generatedScript).not.toContain('allday due date');
+    expect(generatedScript).toContain('due date:dueDateValue');
+    expect(generatedScript).not.toContain('allday due date:dueDateValue');
   });
 });
 
@@ -955,7 +967,6 @@ describe('handleUpdateReminder', () => {
     expect(result.content[0].text).toContain(
       'Successfully updated reminder "Meeting": due date',
     );
-    expect(parseDateWithType).toHaveBeenCalledWith('2024-03-20 14:00:00');
   });
 
   test('should update reminder completion status', async () => {
@@ -1048,6 +1059,18 @@ describe('handleUpdateReminder', () => {
   });
 
   test('should update reminder with date-only format using allday due date', async () => {
+    mockGenerateDateProperty.mockReturnValueOnce({
+      prelude: [
+        'set updatedDueDateValue to current date',
+        'set year of updatedDueDateValue to 2024',
+        'set month of updatedDueDateValue to December',
+        'set day of updatedDueDateValue to 25',
+        'set time of updatedDueDateValue to 0',
+      ],
+      variableName: 'updatedDueDateValue',
+      isDateOnly: true,
+    });
+
     const args = {
       action: 'update' as const,
       title: 'Existing Task',
@@ -1060,17 +1083,37 @@ describe('handleUpdateReminder', () => {
     expect(result.content[0].text).toContain(
       'Successfully updated reminder "Existing Task": due date',
     );
-    expect(parseDateWithType).toHaveBeenCalledWith('2024-12-25');
+    expect(generateDateProperty).toHaveBeenCalledWith(
+      '2024-12-25',
+      'updatedDueDateValue',
+    );
 
     // Verify the generated script contains allday due date for date-only format
     const generatedScript = (
       executeAppleScript as jest.MockedFunction<(script: string) => string>
     ).mock.calls[0][0];
-    expect(generatedScript).toContain('set allday due date');
-    expect(generatedScript).not.toContain('set due date');
+    expect(generatedScript).toContain('set updatedDueDateValue to current date');
+    expect(generatedScript).toContain(
+      'set allday due date of targetReminder to updatedDueDateValue',
+    );
+    expect(generatedScript).not.toContain(
+      'date "',
+    );
   });
 
   test('should update reminder with datetime format using regular due date', async () => {
+    mockGenerateDateProperty.mockReturnValueOnce({
+      prelude: [
+        'set updatedDueDateValue to current date',
+        'set year of updatedDueDateValue to 2024',
+        'set month of updatedDueDateValue to December',
+        'set day of updatedDueDateValue to 25',
+        'set time of updatedDueDateValue to 52200',
+      ],
+      variableName: 'updatedDueDateValue',
+      isDateOnly: false,
+    });
+
     const args = {
       action: 'update' as const,
       title: 'Scheduled Task',
@@ -1083,14 +1126,21 @@ describe('handleUpdateReminder', () => {
     expect(result.content[0].text).toContain(
       'Successfully updated reminder "Scheduled Task": due date',
     );
-    expect(parseDateWithType).toHaveBeenCalledWith('2024-12-25 14:30:00');
+    expect(generateDateProperty).toHaveBeenCalledWith(
+      '2024-12-25 14:30:00',
+      'updatedDueDateValue',
+    );
 
     // Verify the generated script contains regular due date for datetime format
     const generatedScript = (
       executeAppleScript as jest.MockedFunction<(script: string) => string>
     ).mock.calls[0][0];
-    expect(generatedScript).toContain('set due date');
-    expect(generatedScript).not.toContain('set allday due date');
+    expect(generatedScript).toContain(
+      'set due date of targetReminder to updatedDueDateValue',
+    );
+    expect(generatedScript).not.toContain(
+      'set allday due date of targetReminder',
+    );
   });
 });
 

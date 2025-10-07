@@ -3,14 +3,30 @@
  * Utilities for parsing and formatting dates
  */
 
-import { spawn } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import moment from 'moment';
 import { debugLog } from './logger.js';
 
 // Date format constants for AppleScript compatibility
-const DATE_ONLY_FORMAT = 'MMMM D, YYYY' as const;
-const DATETIME_FORMAT_12_HOUR = 'MMMM D, YYYY h:mm:ss A' as const;
-const DATETIME_FORMAT_24_HOUR = 'MMMM D, YYYY HH:mm:ss' as const;
+const FALLBACK_DATE_FORMAT_12_HOUR = 'MMMM D, YYYY' as const;
+const FALLBACK_DATE_FORMAT_24_HOUR = 'D MMMM YYYY' as const;
+const FALLBACK_TIME_FORMAT_12_HOUR = 'h:mm:ss A' as const;
+const FALLBACK_TIME_FORMAT_24_HOUR = 'HH:mm:ss' as const;
+
+const APPLESCRIPT_MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
 
 /**
  * Time preference management using functional composition
@@ -22,34 +38,84 @@ type TimePreferenceState = {
 const timePreferenceState: TimePreferenceState = {};
 
 /**
+ * Retrieves the system locale for localized date formatting.
+ * Falls back to 'en' if detection fails.
+ */
+function getSystemLocale(): string {
+  try {
+    const locale =
+      new Intl.DateTimeFormat().resolvedOptions().locale ?? 'en';
+    return locale.replace('_', '-');
+  } catch {
+    return 'en';
+  }
+}
+
+/**
  * Gets the 24-hour time preference with lazy initialization
  */
 function get24HourPreference(): boolean {
   if (timePreferenceState.cache === undefined) {
-    timePreferenceState.cache = false; // Safe default
-    initializeTimePreferenceAsync(); // Non-blocking async init
+    timePreferenceState.cache = determineTimePreference();
   }
   return timePreferenceState.cache;
 }
 
-/**
- * Initializes time preference asynchronously
- */
-async function initializeTimePreferenceAsync(): Promise<void> {
+function determineTimePreference(): boolean {
+  const fallback = inferLocale24HourPreference();
   try {
-    const result = await safeSystemCommand('defaults', [
+    const result = safeSystemCommandSync('defaults', [
       'read',
       '-g',
       'AppleICUForce24HourTime',
     ]);
-    timePreferenceState.cache = result === '1';
+    const normalized = result.trim();
+    if (normalized === '1') {
+      debugLog('Time preference: 24-hour');
+      return true;
+    }
+    if (normalized === '0') {
+      debugLog(
+        `Time preference from defaults: 12-hour, locale fallback indicates ${
+          fallback ? '24-hour' : '12-hour'
+        }`,
+      );
+      return fallback;
+    }
     debugLog(
-      `Time preference: ${timePreferenceState.cache ? '24-hour' : '12-hour'}`,
+      `Unexpected defaults value "${normalized}", using locale fallback ${
+        fallback ? '(24-hour)' : '(12-hour)'
+      }`,
     );
+    return fallback;
   } catch (error) {
-    timePreferenceState.cache = false;
-    debugLog(`Using 12-hour default: ${(error as Error).message}`);
+    debugLog(
+      `Using ${fallback ? '24-hour' : '12-hour'} default: ${
+        (error as Error).message
+      }`,
+    );
+    return fallback;
   }
+}
+
+function inferLocale24HourPreference(): boolean {
+  try {
+    const formatter = new Intl.DateTimeFormat(undefined, { hour: 'numeric' });
+    const options = formatter.resolvedOptions();
+
+    if (typeof options.hour12 === 'boolean') {
+      return options.hour12 === false;
+    }
+
+    const hourCycle = (options as { hourCycle?: string }).hourCycle;
+    if (hourCycle) {
+      return hourCycle === 'h23' || hourCycle === 'h24';
+    }
+  } catch {
+    // Ignore errors and fall back to 12-hour preference below
+  }
+
+  return false;
 }
 
 /**
@@ -83,59 +149,29 @@ function validateSystemCommand(command: string, args: string[]): void {
  * @param timeout - Timeout in milliseconds
  * @returns Promise with command output
  */
-async function safeSystemCommand(
+function safeSystemCommandSync(
   command: string,
   args: string[],
   timeout = 5000,
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    // Guard clause: validate command security
-    try {
-      validateSystemCommand(command, args);
-    } catch (error) {
-      reject(error);
-      return;
-    }
+): string {
+  // Guard clause: validate command security
+  validateSystemCommand(command, args);
 
-    const childProcess = spawn(command, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout,
-      detached: false,
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    childProcess.stdout?.on('data', (data) => {
-      stdout += data.toString();
-    });
-    
-    childProcess.stderr?.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    childProcess.on('close', (code) => {
-      const result = code === 0 
-        ? resolve(stdout.trim()) 
-        : reject(new Error(`Command failed: ${stderr}`));
-      return result;
-    });
-
-    childProcess.on('error', (error) => {
-      reject(new Error(`Process error: ${error.message}`));
-    });
-
-    // Set up timeout
-    const timeoutId = setTimeout(() => {
-      if (!childProcess.killed) {
-        childProcess.kill('SIGTERM');
-      }
-      reject(new Error(`Command timed out after ${timeout}ms`));
-    }, timeout);
-
-    // Clear timeout on process completion
-    childProcess.on('close', () => clearTimeout(timeoutId));
+  const result = spawnSync(command, args, {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout,
+    encoding: 'utf8',
   });
+
+  if (result.error) {
+    throw new Error(`Process error: ${result.error.message}`);
+  }
+
+  if (typeof result.status === 'number' && result.status !== 0) {
+    throw new Error(`Command failed: ${result.stderr ?? ''}`.trim());
+  }
+
+  return (result.stdout ?? '').toString().trim();
 }
 
 /**
@@ -183,14 +219,55 @@ export function parseDateWithType(dateStr: string): ParsedDate {
  * @param quoteFn - Function to quote AppleScript strings
  * @returns AppleScript property string for the appropriate date type
  */
+export interface AppleScriptDateValue {
+  prelude: string[];
+  variableName: string;
+  isDateOnly: boolean;
+}
+
 export function generateDateProperty(
   dateStr: string,
-  quoteFn: (str: string) => string,
-): string {
+  variableName: string,
+): AppleScriptDateValue {
   const isDateOnly = isDateOnlyFormat(dateStr);
-  const formatted = formatDate(dateStr, isDateOnly);
-  const dateType = isDateOnly ? 'allday due date' : 'due date';
-  return `, ${dateType}:date ${quoteFn(formatted)}`;
+
+  let parsedDate: moment.Moment;
+  try {
+    parsedDate = moment(
+      dateStr,
+      ['YYYY-MM-DD HH:mm:ss', moment.ISO_8601, 'YYYY-MM-DD'],
+      true,
+    );
+  } catch {
+    throw new Error(createDateFormatErrorMessage(dateStr));
+  }
+
+  if (!parsedDate.isValid()) {
+    throw new Error(createDateFormatErrorMessage(dateStr));
+  }
+
+  const year = parsedDate.year();
+  const monthIndex = parsedDate.month();
+  const day = parsedDate.date();
+  const hour = isDateOnly ? 0 : parsedDate.hour();
+  const minute = isDateOnly ? 0 : parsedDate.minute();
+  const second = isDateOnly ? 0 : parsedDate.second();
+  const secondsFromMidnight = hour * 3600 + minute * 60 + second;
+
+  const monthName = APPLESCRIPT_MONTHS[monthIndex];
+  const prelude = [
+    `set ${variableName} to current date`,
+    `set year of ${variableName} to ${year}`,
+    `set month of ${variableName} to ${monthName}`,
+    `set day of ${variableName} to ${day}`,
+    `set time of ${variableName} to ${secondsFromMidnight}`,
+  ];
+
+  return {
+    prelude,
+    variableName,
+    isDateOnly,
+  };
 }
 
 /**
@@ -229,19 +306,27 @@ function formatDate(dateStr: string, isDateOnly: boolean): string {
     throw new Error(createDateFormatErrorMessage(dateStr));
   }
 
-  const englishMoment = parsedDate.locale('en');
+  const systemLocale = getSystemLocale().toLowerCase();
+  const localizedMoment = parsedDate.locale(systemLocale);
+  const localeData = localizedMoment.localeData();
+  const prefer24Hour = get24HourPreference();
+  const dateFormat =
+    localeData.longDateFormat('LL') ??
+    (prefer24Hour
+      ? FALLBACK_DATE_FORMAT_24_HOUR
+      : FALLBACK_DATE_FORMAT_12_HOUR);
 
-  // Early return for date-only format
   if (isDateOnly) {
-    return englishMoment.format(DATE_ONLY_FORMAT);
+    return localizedMoment.format(dateFormat);
   }
 
-  // Format based on system preference
-  const format = get24HourPreference() 
-    ? DATETIME_FORMAT_24_HOUR 
-    : DATETIME_FORMAT_12_HOUR;
-  
-  return englishMoment.format(format);
+  const localeTimeFormat = localeData.longDateFormat('LTS');
+  const timeFormat = prefer24Hour
+    ? FALLBACK_TIME_FORMAT_24_HOUR
+    : localeTimeFormat ?? FALLBACK_TIME_FORMAT_12_HOUR;
+
+  const formatString = `${dateFormat} ${timeFormat}`;
+  return localizedMoment.format(formatString);
 }
 
 /**
